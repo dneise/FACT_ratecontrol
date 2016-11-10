@@ -162,6 +162,8 @@ private:
 
     void ProcessPatches(const FTM::DimTriggerRates &sdata)
     {
+        const int n_total_patches = 160;
+        const int n_patches_per_board = 4;
 
         // Caluclate Median and deviation
         vector<float> medb(sdata.fBoardRate, sdata.fBoardRate+40);
@@ -210,37 +212,19 @@ private:
 
         bool changed = false;
 
-        for (int i=0; i<40; i++) {
-            if (fBlock[i]) {
-                fBlock[i] = false;
-                continue;
-            }
-
-            float* patch_rate_of_this_board = sdata.fPatchRate + (i * 4);
-            const int num_patches = 4;
-
-            const float dif = fabs(sdata.fBoardRate[i]-mb)/db;
-            if (dif>3) {
-                if (fVerbose){
-                    Out() << "Board " << setw(3) << i << ": ";
-                    Out() << dif << " dev away from med" << endl;
-                }
-            }
-
+        for (int patch_id=0; patch_id < n_total_patches; patch_id++){
+            float this_patch_rate = sdata.fPatchRate[patch_id];
             // Adjust thresholds of all patches towards the median patch rate
-
-            for (int j=0; j<num_patches; j++) {
-                if (patch_rate_of_this_board[j] < self_patch_rate_median)
-                {
-                    const float step = (
-                        log10(patch_rate_of_this_board[j])
-                        - log10(self_patch_rate_median + 3.5 * self_patch_rate_std)
-                        ) / 0.039;
-                    changed |= Step(i*num_patches+j, step);
-                } else {
-                    const float step =  -1.5 * (log10(self_patch_rate_median + self_patch_rate_std) - log10(mp))/0.039;
-                    changed |= Step(i*num_patches+j, step);
-                }
+            if (this_patch_rate < self_patch_rate_median)
+            {
+                const float step = (
+                    log10(this_patch_rate)
+                    - log10(self_patch_rate_median + 3.5 * self_patch_rate_std)
+                    ) / 0.039;
+                changed |= Step(patch_id, step);
+            } else {
+                const float step =  -1.5 * (log10(self_patch_rate_median + self_patch_rate_std) - log10(mp))/0.039;
+                changed |= Step(patch_id, step);
             }
         }
 
