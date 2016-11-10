@@ -107,17 +107,11 @@ private:
 
         if (GetCurrentState()<=RateControl::State::kConnected)
             return;
-
         Out() << "Min. DAC=" << fThresholdMin << endl;
-
-        for (int j=0; j<10; j++)
-        {
-            for (int k=0; k<4; k++)
-            {
-                for (int i=0; i<4; i++)
-                {
+        for (int j=0; j<10; j++) {
+            for (int k=0; k<4; k++) {
+                for (int i=0; i<4; i++) {
                     const int p = i + k*4 + j*16;
-
                     if (fThresholds[p]!=fThresholdMin)
                         Out() << setw(3) << fThresholds[p];
                     else
@@ -128,7 +122,6 @@ private:
                     else
                         Out() << " ";
                 }
-
                 Out() << "   ";
             }
             Out() << endl;
@@ -136,7 +129,6 @@ private:
         Out() << endl;
     }
 
-    // RETURN VALUE
     bool Step(int idx, float step)
     {
         uint32_t diff = fThresholds[idx]+int16_t(truncf(step));
