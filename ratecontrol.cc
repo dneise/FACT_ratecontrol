@@ -203,7 +203,8 @@ private:
                 continue;
             }
 
-            int maxi = -1;
+            float* patch_rate_of_this_board = sdata.fPatchRate + (i * 4);
+            const int num_patches = 4;
 
             const float dif = fabs(sdata.fBoardRate[i]-mb)/db;
             if (dif>3) {
@@ -212,35 +213,25 @@ private:
                     Out() << dif << " dev away from med" << endl;
                 }
 
-                float max = sdata.fPatchRate[i*4];
-                maxi = 0;
-
-                for (int j=1; j<4; j++){
-                    if (sdata.fPatchRate[i*4+j]>max) {
-                        max = sdata.fPatchRate[i*4+j];
-                        maxi = j;
-                    }
-                }
+                int maxi = distance(
+                    patch_rate_of_this_board,
+                    max_element(
+                        patch_rate_of_this_board,
+                        patch_rate_of_this_board + num_patches
+                    )
+                );
             }
 
-            for (int j=0; j<4; j++)
-            {
+            for (int j=0; j<4; j++) {
                 // For the noise pixel correct down to median+3*deviation
-                if (maxi==j)
-                {
-                    // This is the step which has to be performed to go from
-                    // a NSB rate of sdata.fPatchRate[i*4+j]
-
-
+                if (maxi==j) {
                     const float step = (log10(sdata.fPatchRate[i*4+j])-log10(mp+3.5*dp))/0.039;
-                    //  * (dif-5)/dif
                     changed |= Step(i*4+j, step);
                     continue;
                 }
 
                 // For pixels below the median correct also back to median+3*deviation
-                if (sdata.fPatchRate[i*4+j]<mp)
-                {
+                if (sdata.fPatchRate[i*4+j]<mp) {
                     const float step = (log10(sdata.fPatchRate[i*4+j])-log10(mp+3.5*dp))/0.039;
                     changed |= Step(i*4+j, step);
                     continue;
