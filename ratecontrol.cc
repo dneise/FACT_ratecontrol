@@ -197,10 +197,8 @@ private:
 
         bool changed = false;
 
-        for (int i=0; i<40; i++)
-        {
-            if (fBlock[i])
-            {
+        for (int i=0; i<40; i++) {
+            if (fBlock[i]) {
                 fBlock[i] = false;
                 continue;
             }
@@ -208,20 +206,21 @@ private:
             int maxi = -1;
 
             const float dif = fabs(sdata.fBoardRate[i]-mb)/db;
-            if (dif>3)
-            {
-                if (fVerbose)
-                    Out() << "Board " << setw(3) << i << ": " << dif << " dev away from med" << endl;
+            if (dif>3) {
+                if (fVerbose){
+                    Out() << "Board " << setw(3) << i << ": ";
+                    Out() << dif << " dev away from med" << endl;
+                }
 
                 float max = sdata.fPatchRate[i*4];
                 maxi = 0;
 
-                for (int j=1; j<4; j++)
-                    if (sdata.fPatchRate[i*4+j]>max)
-                    {
+                for (int j=1; j<4; j++){
+                    if (sdata.fPatchRate[i*4+j]>max) {
                         max = sdata.fPatchRate[i*4+j];
                         maxi = j;
                     }
+                }
             }
 
             for (int j=0; j<4; j++)
