@@ -81,6 +81,13 @@ private:
 
     Time fCalibrationTimeStart;
 
+    double self_patch_rate_median;
+    double self_patch_rate_std;
+
+    double self_board_rate_median;
+    double self_board_rate_std;
+
+
     bool CheckEventSize(const EventImp &evt, size_t size)
     {
         if (size_t(evt.GetSize())==size)
@@ -174,15 +181,29 @@ private:
         sort(devb.begin(), devb.end());
         sort(devp.begin(), devp.end());
 
-        const double mb = (medb[19]+medb[20])/2;
-        const double mp = (medp[79]+medp[80])/2;
-
-        const double db = devb[27];
-        const double dp = devp[109];
-
-        // If any is zero there is something wrong
-        if (mb==0 || mp==0 || db==0 || dp==0)
+        self_board_rate_median = (medb[19]+medb[20])/2;
+        if (self_board_rate_median){
+            Out() << "Median Board Rate is zero, something is wrong" << endl;
             return;
+        }
+
+        self_patch_rate_median = (medp[79]+medp[80])/2;
+        if (self_patch_rate_median){
+            Out() << "Patch Board Rate is zero, something is wrong" << endl;
+            return;
+        }
+
+        self_board_rate_std = devb[27];
+        if (self_board_rate_std){
+            Out() << "Board Rate std deviation is zero, something is wrong" << endl;
+            return;
+        }
+
+        self_patch_rate_std = devp[109];
+        if (self_patch_rate_std){
+            Out() << "Patch Rate std deviation is zero, something is wrong" << endl;
+            return;
+        }
 
         if (fVerbose)
             Out() << Tools::Form("Boards: Med=%3.1f +- %3.1f Hz   Patches: Med=%3.1f +- %3.1f Hz", mb, db, mp, dp) << endl;
