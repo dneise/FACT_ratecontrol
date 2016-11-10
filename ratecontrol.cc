@@ -208,7 +208,10 @@ private:
         }
 
         if (fVerbose)
-            Out() << Tools::Form("Boards: Med=%3.1f +- %3.1f Hz   Patches: Med=%3.1f +- %3.1f Hz", mb, db, mp, dp) << endl;
+            Out() << Tools::Form(
+                "Boards: Med=%3.1f +- %3.1f Hz   Patches: Med=%3.1f +- %3.1f Hz",
+                self_board_rate_median, self_board_rate_std,
+                self_patch_rate_median, self_patch_rate_std) << endl;
 
         bool changed = false;
 
@@ -359,13 +362,8 @@ private:
                     vec[hv.hw()/9] += it->second[i]*hv.count();
             }
 
-        //fThresholdMin = max(uint16_t(36.0833*pow(avg, 0.638393)+184.037), fThresholdReference);
-        //fThresholdMin = max(uint16_t(42.4*pow(avg, 0.642)+182), fThresholdReference);
-        //fThresholdMin = max(uint16_t(41.6*pow(avg+1, 0.642)+175), fThresholdReference);
-        //fThresholdMin = max(uint16_t(42.3*pow(avg, 0.655)+190), fThresholdReference);
-        //fThresholdMin = max(uint16_t(46.6*pow(avg, 0.627)+187), fThresholdReference);
+
         fThresholdMin = max(uint16_t(156.3*pow(avg, 0.3925)+1), fThresholdReference);
-        //fThresholdMin = max(uint16_t(41.6*pow(avg, 0.642)+175), fThresholdReference);
         fThresholds.assign(160, fThresholdMin);
 
         int counter = 1;
@@ -393,8 +391,6 @@ private:
         const RateControl::DimThreshold data = { fThresholdMin, fCalibrationTimeStart.Mjd(), Time().Mjd() };
         fDimThreshold.setQuality(2);
         fDimThreshold.Update(data);
-
-        //Info("Sent a total of "+to_string(counter)+" commands for threshold setting");
 
         ostringstream out;
         out << setprecision(3);
