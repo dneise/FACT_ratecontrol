@@ -225,33 +225,22 @@ private:
                     Out() << "Board " << setw(3) << i << ": ";
                     Out() << dif << " dev away from med" << endl;
                 }
-
-                int maxi = distance(
-                    patch_rate_of_this_board,
-                    max_element(
-                        patch_rate_of_this_board,
-                        patch_rate_of_this_board + num_patches
-                    )
-                );
             }
 
-            for (int j=0; j<4; j++) {
-                // For the noise pixel correct down to median+3*deviation
-                if (maxi==j) {
-                    const float step = (log10(sdata.fPatchRate[i*4+j])-log10(mp+3.5*dp))/0.039;
-                    changed |= Step(i*4+j, step);
-                    continue;
-                }
+            // Adjust thresholds of all patches towards the median patch rate
 
-                // For pixels below the median correct also back to median+3*deviation
-                if (sdata.fPatchRate[i*4+j]<mp) {
-                    const float step = (log10(sdata.fPatchRate[i*4+j])-log10(mp+3.5*dp))/0.039;
-                    changed |= Step(i*4+j, step);
-                    continue;
+            for (int j=0; j<num_patches; j++) {
+                if (patch_rate_of_this_board[j] < self_patch_rate_median)
+                {
+                    const float step = (
+                        log10(patch_rate_of_this_board[j])
+                        - log10(self_patch_rate_median + 3.5 * self_patch_rate_std)
+                        ) / 0.039;
+                    changed |= Step(i*num_patches+j, step);
+                } else {
+                    const float step =  -1.5 * (log10(self_patch_rate_median + self_patch_rate_std) - log10(mp))/0.039;
+                    changed |= Step(i*num_patches+j, step);
                 }
-
-                const float step =  -1.5*(log10(mp+dp)-log10(mp))/0.039;
-                changed |= Step(i*4+j, step);
             }
         }
 
