@@ -232,123 +232,6 @@ private:
             Dim::SendCommandNB("FTM_CONTROL/SET_SELECTED_THRESHOLDS", fThresholds);
     }
 
-    int ProcessCamera(const FTM::DimTriggerRates &sdata)
-    {
-        if (fCounter++==0)
-            return GetCurrentState();
-
-        // Caluclate Median and deviation
-        vector<float> medb(sdata.fBoardRate, sdata.fBoardRate+40);
-
-        sort(medb.begin(), medb.end());
-
-        vector<float> devb(40);
-        for (int i=0; i<40; i++)
-            devb[i] = fabs(sdata.fBoardRate[i]-medb[i]);
-
-        sort(devb.begin(), devb.end());
-
-        double mb = (medb[19]+medb[20])/2;
-        double db = devb[27];
-
-        // If any is zero there is something wrong
-        if (mb==0 || db==0)
-        {
-            Warn("The median or the deviation of all board rates is zero... cannot calibrate.");
-            return GetCurrentState();
-        }
-
-        double avg = 0;
-        int    num = 0;
-
-        for (int i=0; i<40; i++)
-        {
-            if ( fabs(sdata.fBoardRate[i]-mb)<2.5*db)
-            {
-                avg += sdata.fBoardRate[i];
-                num++;
-            }
-        }
-
-        fTriggerRate = avg/num * 40;
-
-        if (fVerbose)
-        {
-            Out() << "Board:  Median=" << mb << " Dev=" << db << endl;
-            Out() << "Camera: " << fTriggerRate << " (" << sdata.fTriggerRate << ", n=" << num << ")" << endl;
-            Out() << "Target: " << fTargetRate << endl;
-        }
-
-        if (sdata.fTriggerRate<fTriggerRate)
-            fTriggerRate = sdata.fTriggerRate;
-
-        // ----------------------
-
-        /*
-        if (avg>0 && avg<fTargetRate)
-        {
-            // I am assuming here (and at other places) the the answer from the FTM when setting
-            // the new threshold always arrives faster than the next rate update.
-            fThresholdMin = fThresholds[0];
-            Out() << "Setting fThresholdMin to " << fThresholds[0] << endl;
-        }
-        */
-
-        if (fTriggerRate>0 && fTriggerRate<fTargetRate)
-        {
-            fThresholds.assign(160, fThresholdMin);
-
-            const RateControl::DimThreshold data = { fThresholdMin, fCalibrationTimeStart.Mjd(), Time().Mjd() };
-            fDimThreshold.setQuality(0);
-            fDimThreshold.Update(data);
-
-            ostringstream out;
-            out << setprecision(3);
-            out << "Measured rate " << fTriggerRate << "Hz below target rate " << fTargetRate << "... minimum threshold set to " << fThresholdMin;
-            Info(out);
-
-            fTriggerOn = false;
-            fPhysTriggerEnabled = false;
-            return RateControl::State::kGlobalThresholdSet;
-        }
-
-        // This is a step towards a threshold at which the NSB rate is equal the target rate
-        // +1 to avoid getting a step of 0
-        const float step = (log10(fTriggerRate)-log10(fTargetRate))/0.039 + 1;
-
-        const uint16_t diff = fThresholdMin+int16_t(truncf(step));
-        if (diff<=fThresholdMin)
-        {
-            const RateControl::DimThreshold data = { fThresholdMin, fCalibrationTimeStart.Mjd(), Time().Mjd() };
-            fDimThreshold.setQuality(1);
-            fDimThreshold.Update(data);
-
-            ostringstream out;
-            out << setprecision(3);
-            out << "Next step would be 0... minimum threshold set to " << fThresholdMin;
-            Info(out);
-
-            fTriggerOn = false;
-            fPhysTriggerEnabled = false;
-            return RateControl::State::kGlobalThresholdSet;
-        }
-
-        if (fVerbose)
-        {
-            //Out() << idx/40 << "|" << (idx/4)%10 << "|" << idx%4;
-            Out() << fThresholdMin;
-            Out() << (step>0 ? " += " : " -= ");
-            Out() << step << " (" << diff << ")" << endl;
-        }
-
-        const uint32_t val[2] = { uint32_t(-1),  diff };
-        Dim::SendCommandNB("FTM_CONTROL/SET_THRESHOLD", val);
-
-        fThresholdMin = diff;
-
-        return GetCurrentState();
-    }
-
     int HandleStaticData(const EventImp &evt)
     {
         if (!CheckEventSize(evt, sizeof(FTM::DimStaticData)))
@@ -392,9 +275,6 @@ private:
             return GetCurrentState();
 
         const FTM::DimTriggerRates &sdata = *static_cast<const FTM::DimTriggerRates*>(evt.GetData());
-
-        if (GetCurrentState()==RateControl::State::kSettingGlobalThreshold && !fCalibrateByCurrent)
-            return ProcessCamera(sdata);
 
         if (GetCurrentState()==RateControl::State::kInProgress)
             ProcessPatches(sdata);
