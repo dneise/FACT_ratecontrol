@@ -530,24 +530,7 @@ private:
 
     int Calibrate()
     {
-        const int32_t val[2] = { -1, fThresholdReference };
-        Dim::SendCommandNB("FTM_CONTROL/SET_THRESHOLD", val);
-
-        fThresholds.assign(160, fThresholdReference);
-
-        fThresholdMin = fThresholdReference;
-        fTriggerRate  = -1;
-        fCounter      = 0;
-        fBlock.assign(160, false);
-
-        fCalibrateByCurrent = false;
-        fCalibrationTimeStart = Time();
-
-        ostringstream out;
-        out << "Rate calibration started at a threshold of " << fThresholdReference << " with a target rate of " << fTargetRate << " Hz";
-        Info(out);
-
-        return RateControl::State::kSettingGlobalThreshold;
+        // this function is never called in all 2016
     }
 
     int CalibrateByCurrent()
