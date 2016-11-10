@@ -70,9 +70,10 @@ private:
     uint16_t fAverageTime;
     uint16_t fRequiredEvents;
 
-    list<pair<Time,float>> fCurrentsMed;
-    list<pair<Time,float>> fCurrentsDev;
-    list<pair<Time,vector<float>>> fCurrentsVec;
+    list<Time> fCurrentsTime;
+    list<float> fCurrentsMed;
+    list<float> fCurrentsDev;
+    list<vector<float>> fCurrentsVec;
 
     bool fVerbose;
     bool fCalibrateByCurrent;
@@ -163,7 +164,6 @@ private:
     void ProcessPatches(const FTM::DimTriggerRates &sdata)
     {
         const int n_total_patches = 160;
-        const int n_patches_per_board = 4;
 
         // Caluclate Median and deviation
         vector<float> medb(sdata.fBoardRate, sdata.fBoardRate+40);
@@ -226,7 +226,7 @@ private:
                     ) / 0.039;
                 changed |= Step(patch_id, step);
             } else {
-                const float step =  -1.5 * (log10(self_patch_rate_median + self_patch_rate_std) - log10(mp))/0.039;
+                const float step =  -1.5 * (log10(self_patch_rate_median + self_patch_rate_std) - log10(self_patch_rate_median))/0.039;
                 changed |= Step(patch_id, step);
             }
         }
@@ -303,14 +303,16 @@ private:
         const float *cur = evt.Ptr<float>();
 
         // Keep all median currents of the past 10 seconds
-        fCurrentsMed.emplace_back(time, med);
-        fCurrentsDev.emplace_back(time, dev);
-        fCurrentsVec.emplace_back(time, vector<float>(cur, cur+320));
-        while (!fCurrentsMed.empty())
+        fCurrentsTime.emplace_back(time);
+        fCurrentsMed.emplace_back(med);
+        fCurrentsDev.emplace_back(dev);
+        fCurrentsVec.emplace_back(vector<float>(cur, cur+320));
+        while (!fCurrentsTime.empty())
         {
-            if (time-fCurrentsMed.front().first<boost::posix_time::seconds(fAverageTime))
+            if (time-fCurrentsTime.front() < boost::posix_time::seconds(fAverageTime))
                 break;
 
+            fCurrentsTime.pop_front();
             fCurrentsMed.pop_front();
             fCurrentsDev.pop_front();
             fCurrentsVec.pop_front();
@@ -332,57 +334,39 @@ private:
         if (fCurrentsMed.size()<fRequiredEvents)
             return GetCurrentState();
 
-        // Calculate avera and rms of median
-        double avg = 0;
-        double rms = 0;
-        for (auto it=fCurrentsMed.begin(); it!=fCurrentsMed.end(); it++)
-        {
-            avg += it->second;
-            rms += it->second*it->second;
-        }
-        avg /= fCurrentsMed.size();
-        rms /= fCurrentsMed.size();
-        rms -= avg*avg;
-        rms = rms<0 ? 0 : sqrt(rms);
 
-        double avg_dev = 0;
-        for (auto it=fCurrentsDev.begin(); it!=fCurrentsDev.end(); it++)
-            avg_dev += it->second;
-        avg_dev /= fCurrentsMed.size();
+        double avg = RateControl::vector_mean(fCurrentsMed);
+        double avg_dev = RateControl::vector_std(fCurrentsMed);
 
-        // One could recalculate the median of all pixels including the
-        // correction for the three crazy pixels, but that is three out
-        // of 320. The effect on the median should be negligible anyhow.
-        vector<double> vec(160);
+        // from the history of the last 10 seconds, we have a list
+        // of N, 320 bias current values. We want to assign them to
+        // their respective patches and kind of average over the last 10 seconds
+        // so we sum these currents up and devide by the number of
+        // entries of fCurrentsVec and the number of pixels a patch has.
+        vector<double> patch_currents(160);
         for (auto it=fCurrentsVec.begin(); it!=fCurrentsVec.end(); it++)
             for (int i=0; i<320; i++)
             {
                 const PixelMapEntry &hv = fMap.hv(i);
                 if (hv)
-                    vec[hv.hw()/9] += it->second[i]*hv.count();
+                    patch_currents[hv.hw()/9] += (*it)[i]*hv.count() / (fCurrentsVec.size()*9);
             }
 
 
         fThresholdMin = max(uint16_t(156.3*pow(avg, 0.3925)+1), fThresholdReference);
         fThresholds.assign(160, fThresholdMin);
 
-        int counter = 1;
-
-        double avg2 = 0;
+        int number_of_individual_thresholds_set = 0;
+        double avg2 = RateControl::vector_mean(patch_currents);
         for (int i=0; i<160; i++)
         {
-            vec[i] /= fCurrentsVec.size()*9;
-
-            avg2 += vec[i];
-
-            if (vec[i]>avg+3.5*avg_dev)
+            if (patch_currents[i] > avg+3.5*avg_dev)
             {
-                fThresholds[i] = max(uint16_t(40.5*pow(vec[i], 0.642)+164), fThresholdMin);
-
-                counter++;
+                number_of_individual_thresholds_set += 1;
+                fThresholds[i] = max(uint16_t(40.5*pow(patch_currents[i], 0.642)+164), fThresholdMin);
             }
         }
-        avg2 /= 160;
+
 
 
         Dim::SendCommandNB("FTM_CONTROL/SET_ALL_THRESHOLDS", fThresholds);
@@ -394,19 +378,14 @@ private:
 
         ostringstream out;
         out << setprecision(3);
-        out << "Measured average current " << avg << "uA +- " << rms << "uA [N=" << fCurrentsMed.size() << "]... minimum threshold set to " << fThresholdMin;
+        out << "Measured average current " << avg << "uA +- " << avg_dev << "uA [N=" << fCurrentsMed.size() << "]... minimum threshold set to " << fThresholdMin;
         Info(out);
-        Info("Set "+to_string(counter)+" individual thresholds.");
+        Info("Set "+to_string(number_of_individual_thresholds_set)+" individual thresholds.");
 
         fTriggerOn = false;
         fPhysTriggerEnabled = false;
 
         return RateControl::State::kSettingGlobalThreshold;
-    }
-
-    int Calibrate()
-    {
-        // this function is never called in all 2016
     }
 
     int CalibrateByCurrent()
@@ -489,11 +468,6 @@ private:
             fPhysTriggerEnabled = false;
             return RateControl::State::kGlobalThresholdSet;
             break;
-
-        case 1:
-            fThresholdReference = conf.fMinThreshold;
-            fTargetRate = conf.fTargetRate;
-            return Calibrate();
 
         case 2:
             fThresholdReference = conf.fMinThreshold;
@@ -644,10 +618,6 @@ public:
 
         AddStateName(RateControl::State::kInProgress, "InProgress",
                      "Rate control in progress.");
-
-        AddEvent("CALIBRATE")
-            (bind(&StateMachineRateControl::Calibrate, this))
-            ("Start a search for a reasonable minimum global threshold");
 
         AddEvent("CALIBRATE_BY_CURRENT")
             (bind(&StateMachineRateControl::CalibrateByCurrent, this))
@@ -835,3 +805,5 @@ int main(int argc, const char* argv[])
 
     return 0;
 }
+
+
