@@ -74,7 +74,6 @@ private:
     list<vector<float>> fCurrentsVec;
 
     bool fVerbose;
-    bool fCalibrateByCurrent;
 
     uint64_t fCounter;
 
@@ -253,7 +252,7 @@ private:
         Out() << "\n" << evt.GetTime() << ": " << (bool)fTriggerOn << " " << (bool)fPhysTriggerEnabled << endl;
         PrintThresholds(sdata);
 
-        if (GetCurrentState()==RateControl::State::kSettingGlobalThreshold && fCalibrateByCurrent)
+        if (GetCurrentState()==RateControl::State::kSettingGlobalThreshold)
         {
             if (fThresholds.empty())
                 return RateControl::State::kSettingGlobalThreshold;
@@ -324,10 +323,6 @@ private:
             fCurrentsVec.pop_front();
         }
 
-        // If we are not doing a calibration no further action necessary
-        if (!fCalibrateByCurrent)
-            return GetCurrentState();
-
         // We are not setting thresholds at all
         if (GetCurrentState()!=RateControl::State::kSettingGlobalThreshold)
             return GetCurrentState();
@@ -397,7 +392,6 @@ private:
     int CalibrateByCurrent()
     {
         fCounter = 0;
-        fCalibrateByCurrent = true;
         fCalibrationTimeStart = Time();
         has_this_FTU_been_mofified_this_time.assign(40, false);
         should_this_FTU_be_ommited_next_time.assign(40, false);
@@ -457,7 +451,6 @@ private:
                 fDimThreshold.setQuality(3);
                 fDimThreshold.Update(data);
 
-                fCalibrateByCurrent = true;
                 fTriggerOn = false;
                 fPhysTriggerEnabled = false;
                 return RateControl::State::kSettingGlobalThreshold;
