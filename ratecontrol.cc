@@ -222,14 +222,15 @@ private:
                 continue;
             }
             // Adjust thresholds of all patches towards the median patch rate
+            float step;
             if (this_patch_rate < self_patch_rate_median)
             {
-                const float step = (
+                 step = (
                     log10(this_patch_rate)
                     - log10(self_patch_rate_median + 3.5 * self_patch_rate_std)
                     ) / 0.039;
             } else {
-                const float step =  -1.5 * (log10(self_patch_rate_median + self_patch_rate_std) - log10(self_patch_rate_median))/0.039;
+                step =  -1.5 * (log10(self_patch_rate_median + self_patch_rate_std) - log10(self_patch_rate_median))/0.039;
             }
             changed |= Step(patch_id, step);
             has_this_FTU_been_mofified_this_time[board_id] = true;
@@ -314,7 +315,7 @@ private:
         fCurrentsVec.emplace_back(vector<float>(cur, cur+320));
         while (!fCurrentsTime.empty())
         {
-            if (time-fCurrentsTime.front() < boost::posix_time::seconds(fAverageTime))
+            if (time - fCurrentsTime.front() < boost::posix_time::seconds(fAverageTime))
                 break;
 
             fCurrentsTime.pop_front();
@@ -496,11 +497,7 @@ private:
     {
         if (!CheckEventSize(evt, 4))
             return kSM_FatalError;
-
-        // FIXME: Check missing
-
         fThresholdReference = evt.GetUShort();
-
         return GetCurrentState();
     }
 
@@ -508,9 +505,7 @@ private:
     {
         if (!CheckEventSize(evt, 4))
             return kSM_FatalError;
-
         fTargetRate = evt.GetFloat();
-
         return GetCurrentState();
     }
 
@@ -521,7 +516,6 @@ private:
         Out() << fDimRS << endl;
         Out() << fDimLid << endl;
         Out() << fDimDrive << endl;
-
         return GetCurrentState();
     }
 
@@ -529,9 +523,7 @@ private:
     {
         if (!CheckEventSize(evt, 1))
             return kSM_FatalError;
-
         fVerbose = evt.GetBool();
-
         return GetCurrentState();
     }
 
@@ -588,13 +580,6 @@ public:
                       "|begin[mjd]:Start time of calibration"
                       "|end[mjd]:End time of calibration")
     {
-        // ba::io_service::work is a kind of keep_alive for the loop.
-        // It prevents the io_service to go to stopped state, which
-        // would prevent any consecutive calls to run()
-        // or poll() to do nothing. reset() could also revoke to the
-        // previous state but this might introduce some overhead of
-        // deletion and creation of threads and more.
-
         fDim.Subscribe(*this);
         fDimFTM.Subscribe(*this);
         fDimRS.Subscribe(*this);
@@ -733,8 +718,6 @@ void SetupConfiguration(Configuration &conf)
     control.add_options()
         ("quiet,q", po_bool(),  "Disable printing more informations during rate control.")
         ("pixel-map-file", var<string>()->required(), "Pixel mapping file. Used here to get the default reference voltage.")
-       //("max-wait",   var<uint16_t>(150), "The maximum number of seconds to wait to get the anticipated resolution for a point.")
-       // ("resolution", var<double>(0.05) , "The minimum resolution required for a single data point.")
         ;
 
     conf.AddOptions(control);
@@ -752,17 +735,7 @@ void SetupConfiguration(Configuration &conf)
     conf.AddOptions(runtype);
 }
 
-/*
- Extract usage clause(s) [if any] for SYNOPSIS.
- Translators: "Usage" and "or" here are patterns (regular expressions) which
- are used to match the usage synopsis in program output.  An example from cp
- (GNU coreutils) which contains both strings:
-  Usage: cp [OPTION]... [-T] SOURCE DEST
-    or:  cp [OPTION]... SOURCE... DIRECTORY
-    or:  cp [OPTION]... -t DIRECTORY SOURCE...
- */
-void PrintUsage()
-{
+void PrintUsage() {
     cout <<
         "The ratecontrol program is a keep the rate reasonable low.\n"
         "\n"
@@ -771,26 +744,8 @@ void PrintUsage()
     cout << endl;
 }
 
-void PrintHelp()
-{
+void PrintHelp() {
     Main::PrintHelp<StateMachineRateControl>();
-
-    /* Additional help text which is printed after the configuration
-     options goes here */
-
-    /*
-     cout << "bla bla bla" << endl << endl;
-     cout << endl;
-     cout << "Environment:" << endl;
-     cout << "environment" << endl;
-     cout << endl;
-     cout << "Examples:" << endl;
-     cout << "test exam" << endl;
-     cout << endl;
-     cout << "Files:" << endl;
-     cout << "files" << endl;
-     cout << endl;
-     */
 }
 
 int main(int argc, const char* argv[])
