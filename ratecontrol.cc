@@ -324,7 +324,7 @@ private:
         }
 
         // We are not setting thresholds at all
-        if (GetCurrentState()!=RateControl::State::kSettingGlobalThreshold)
+        if (GetCurrentState() != RateControl::State::kSettingGlobalThreshold)
             return GetCurrentState();
 
         // Target thresholds have been assigned already
