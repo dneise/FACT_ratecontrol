@@ -51,8 +51,6 @@ private:
     bool fPhysTriggerEnabled;
     bool fTriggerOn;
 
-    vector<bool> fBlock;
-
     DimVersion fDim;
     DimDescribedState fDimFTM;
     DimDescribedState fDimRS;
@@ -87,6 +85,10 @@ private:
 
     double self_board_rate_median;
     double self_board_rate_std;
+
+
+    vector<bool> should_this_FTU_be_ommited_next_time;
+    vector<bool> has_this_FTU_been_mofified_this_time;
 
 
     bool CheckEventSize(const EventImp &evt, size_t size)
@@ -137,27 +139,25 @@ private:
         Out() << endl;
     }
 
-    bool Step(int idx, float step)
+    bool Step(int patch_id, float step)
     {
-        uint32_t diff = fThresholds[idx]+int16_t(truncf(step));
+        uint32_t diff = fThresholds[patch_id]+int16_t(truncf(step));
         if (diff<fThresholdMin)
             diff=fThresholdMin;
         if (diff>0xffff)
             diff = 0xffff;
 
-        if (diff==fThresholds[idx])
+        if (diff==fThresholds[patch_id])
             return false;
 
         if (fVerbose)
         {
-            Out() << "Apply: Patch " << setw(3) << idx << " [" << idx/40 << "|" << (idx/4)%10 << "|" << idx%4 << "]";
+            Out() << "Apply: Patch " << setw(3) << patch_id << " [" << patch_id/40 << "|" << (patch_id/4)%10 << "|" << patch_id%4 << "]";
             Out() << (step>0 ? " += " : " -= ");
-            Out() << fabs(step) << " (old=" << fThresholds[idx] << ", new=" << diff << ")" << endl;
+            Out() << fabs(step) << " (old=" << fThresholds[patch_id] << ", new=" << diff << ")" << endl;
         }
 
-        fThresholds[idx] = diff;
-        fBlock[idx/4] = true;
-
+        fThresholds[patch_id] = diff;
         return true;
     }
 
@@ -217,6 +217,10 @@ private:
 
         for (int patch_id=0; patch_id < n_total_patches; patch_id++){
             float this_patch_rate = sdata.fPatchRate[patch_id];
+            int board_id = patch_id / 4;
+            if (should_this_FTU_be_ommited_next_time[board_id]){
+                continue;
+            }
             // Adjust thresholds of all patches towards the median patch rate
             if (this_patch_rate < self_patch_rate_median)
             {
@@ -224,12 +228,13 @@ private:
                     log10(this_patch_rate)
                     - log10(self_patch_rate_median + 3.5 * self_patch_rate_std)
                     ) / 0.039;
-                changed |= Step(patch_id, step);
             } else {
                 const float step =  -1.5 * (log10(self_patch_rate_median + self_patch_rate_std) - log10(self_patch_rate_median))/0.039;
-                changed |= Step(patch_id, step);
             }
+            changed |= Step(patch_id, step);
+            has_this_FTU_been_mofified_this_time[board_id] = true;
         }
+        should_this_FTU_be_ommited_next_time = has_this_FTU_been_mofified_this_time;
 
         if (changed)
             Dim::SendCommandNB("FTM_CONTROL/SET_SELECTED_THRESHOLDS", fThresholds);
@@ -393,7 +398,8 @@ private:
         fCounter = 0;
         fCalibrateByCurrent = true;
         fCalibrationTimeStart = Time();
-        fBlock.assign(160, false);
+        has_this_FTU_been_mofified_this_time.assign(40, false);
+        should_this_FTU_be_ommited_next_time.assign(40, false);
 
         fThresholds.clear();
 
@@ -569,7 +575,9 @@ private:
 
 public:
     StateMachineRateControl(ostream &out=cout) : StateMachineDim(out, "RATE_CONTROL"),
-        fPhysTriggerEnabled(false), fTriggerOn(false), fBlock(40),
+        fPhysTriggerEnabled(false), fTriggerOn(false),
+        has_this_FTU_been_mofified_this_time(40),
+        should_this_FTU_be_ommited_next_time(40),
         fDimFTM("FTM_CONTROL"),
         fDimRS("RATE_SCAN"),
         fDimLid("LID_CONTROL"),
