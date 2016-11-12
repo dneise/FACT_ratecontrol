@@ -338,44 +338,28 @@ private:
     void ProcessPatches(const FTM::DimTriggerRates &sdata)
     {
         const int n_total_patches = 160;
+        vector<float> board_rates(sdata.fBoardRate, sdata.fBoardRate+40);
+        vector<float> patch_rates(sdata.fPatchRate, sdata.fPatchRate+160);
 
-        // Caluclate Median and deviation
-        vector<float> medb(sdata.fBoardRate, sdata.fBoardRate+40);
-        vector<float> medp(sdata.fPatchRate, sdata.fPatchRate+160);
-
-        sort(medb.begin(), medb.end());
-        sort(medp.begin(), medp.end());
-
-        vector<float> devb(40);
-        for (int i=0; i<40; i++)
-            devb[i] = fabs(sdata.fBoardRate[i]-medb[i]);
-
-        vector<float> devp(160);
-        for (int i=0; i<160; i++)
-            devp[i] = fabs(sdata.fPatchRate[i]-medp[i]);
-
-        sort(devb.begin(), devb.end());
-        sort(devp.begin(), devp.end());
-
-        self_board_rate_median = (medb[19]+medb[20])/2;
+        self_board_rate_median = RateControl::vector_median(board_rates);
         if (self_board_rate_median){
             Out() << "Median Board Rate is zero, something is wrong" << endl;
             return;
         }
 
-        self_patch_rate_median = (medp[79]+medp[80])/2;
+        self_patch_rate_median = RateControl::vector_median(patch_rates);
         if (self_patch_rate_median){
             Out() << "Patch Board Rate is zero, something is wrong" << endl;
             return;
         }
 
-        self_board_rate_std = devb[27];
+        self_board_rate_std = RateControl::vector_std_from_cdf(board_rates);
         if (self_board_rate_std){
             Out() << "Board Rate std deviation is zero, something is wrong" << endl;
             return;
         }
 
-        self_patch_rate_std = devp[109];
+        self_patch_rate_srd = RateControl::vector_std_from_cdf(patch_rates);
         if (self_patch_rate_std){
             Out() << "Patch Rate std deviation is zero, something is wrong" << endl;
             return;
