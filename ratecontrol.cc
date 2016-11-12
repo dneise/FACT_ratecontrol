@@ -459,8 +459,8 @@ private:
 
         const FTM::DimTriggerRates &sdata = *static_cast<const FTM::DimTriggerRates*>(evt.GetData());
 
-        if (GetCurrentState()==RateControl::State::kInProgress)
-            ProcessPatches(sdata);
+        //if (GetCurrentState()==RateControl::State::kInProgress)
+        //    ProcessPatches(sdata);
 
         return GetCurrentState();
     }
