@@ -342,34 +342,36 @@ private:
         vector<float> patch_rates(sdata.fPatchRate, sdata.fPatchRate+160);
 
         self_board_rate_median = RateControl::vector_median(board_rates);
-        if (self_board_rate_median){
-            Out() << "Median Board Rate is zero, something is wrong" << endl;
-            return;
-        }
-
         self_patch_rate_median = RateControl::vector_median(patch_rates);
-        if (self_patch_rate_median){
-            Out() << "Patch Board Rate is zero, something is wrong" << endl;
-            return;
-        }
-
         self_board_rate_std = RateControl::vector_std_from_cdf(board_rates);
-        if (self_board_rate_std){
-            Out() << "Board Rate std deviation is zero, something is wrong" << endl;
-            return;
-        }
-
         self_patch_rate_srd = RateControl::vector_std_from_cdf(patch_rates);
-        if (self_patch_rate_std){
-            Out() << "Patch Rate std deviation is zero, something is wrong" << endl;
-            return;
-        }
 
         if (fVerbose)
             Out() << Tools::Form(
                 "Boards: Med=%3.1f +- %3.1f Hz   Patches: Med=%3.1f +- %3.1f Hz",
                 self_board_rate_median, self_board_rate_std,
                 self_patch_rate_median, self_patch_rate_std) << endl;
+
+        if (self_board_rate_median){
+            Out() << "Median Board Rate is zero, something is wrong" << endl;
+            return;
+        }
+
+        if (self_patch_rate_median){
+            Out() << "Patch Board Rate is zero, something is wrong" << endl;
+            return;
+        }
+
+        if (self_board_rate_std){
+            Out() << "Board Rate std deviation is zero, something is wrong" << endl;
+            return;
+        }
+
+        if (self_patch_rate_std){
+            Out() << "Patch Rate std deviation is zero, something is wrong" << endl;
+            return;
+        }
+
 
         bool changed = false;
 
