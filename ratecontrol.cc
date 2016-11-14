@@ -553,22 +553,6 @@ private:
         return RateControl::State::kSettingGlobalThreshold;
     }
 
-    int CalibrateByCurrent()
-    {
-        fCounter = 0;
-        fCalibrationTimeStart = Time();
-        has_this_FTU_been_mofified_this_time.assign(40, false);
-        should_this_FTU_be_ommited_next_time.assign(40, false);
-
-        fThresholds.clear();
-
-        ostringstream out;
-        out << "Rate calibration by current with min. threshold of " << fThresholdReference << ".";
-        Info(out);
-
-        return RateControl::State::kSettingGlobalThreshold;
-    }
-
     int CalibrateRun(const EventImp &evt)
     {
         const string name = evt.GetText();
@@ -632,12 +616,6 @@ private:
             fPhysTriggerEnabled = false;
             return RateControl::State::kGlobalThresholdSet;
             break;
-
-        case 2:
-            fThresholdReference = conf.fMinThreshold;
-            fAverageTime = conf.fAverageTime;
-            fRequiredEvents = conf.fRequiredEvents;
-            return CalibrateByCurrent();
         }
 
         Error("CalibrateRun - Calibration type "+to_string(conf.fCalibrationType)+" unknown.");
@@ -768,10 +746,6 @@ public:
 
         AddStateName(RateControl::State::kInProgress, "InProgress",
                      "Rate control in progress.");
-
-        AddEvent("CALIBRATE_BY_CURRENT")
-            (bind(&StateMachineRateControl::CalibrateByCurrent, this))
-            ("Set the global threshold from the median current");
 
         AddEvent("CALIBRATE_RUN", "C")
             (bind(&StateMachineRateControl::CalibrateRun, this, placeholders::_1))
