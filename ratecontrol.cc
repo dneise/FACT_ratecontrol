@@ -435,23 +435,7 @@ private:
 
     int HandleTriggerRates(const EventImp &evt)
     {
-        fTriggerOn = (evt.GetQoS()&FTM::kFtmStates)==FTM::kFtmRunning;
-
-        if (fThresholds.empty())
-            return GetCurrentState();
-
-        if (GetCurrentState()<=RateControl::State::kConnected ||
-            GetCurrentState()==RateControl::State::kGlobalThresholdSet)
-            return GetCurrentState();
-
-        if (!CheckEventSize(evt, sizeof(FTM::DimTriggerRates)))
-            return GetCurrentState();
-
-        //const FTM::DimTriggerRates &sdata = *static_cast<const FTM::DimTriggerRates*>(evt.GetData());
-
-        //if (GetCurrentState()==RateControl::State::kInProgress)
-        //    ProcessPatches(sdata);
-
+        const FTM::DimTriggerRates &sdata = *static_cast<const FTM::DimTriggerRates*>(evt.GetData());
         return GetCurrentState();
     }
 
@@ -555,71 +539,8 @@ private:
 
     int CalibrateRun(const EventImp &evt)
     {
-        const string name = evt.GetText();
-
-        auto it = fRunTypes.find(name);
-        if (it==fRunTypes.end())
-        {
-            Info("CalibrateRun - Run-type '"+name+"' not found... trying 'default'.");
-
-            it = fRunTypes.find("default");
-            if (it==fRunTypes.end())
-            {
-                Error("CalibrateRun - Run-type 'default' not found.");
-                return GetCurrentState();
-            }
-        }
-
-        const config &conf = it->second;
-
-        if (conf.fCalibrationType!=0)
-        {
-
-            if (!fPhysTriggerEnabled)
-            {
-                Info("Calibration requested, but physics trigger not enabled... CALIBRATE command ignored.");
-
-                fTriggerOn = false;
-                fPhysTriggerEnabled = false;
-                return RateControl::State::kGlobalThresholdSet;
-            }
-
-            if (fDimLid.state()==Lid::State::kClosed)
-            {
-                Info("Calibration requested, but lid closed... setting all thresholds to "+to_string(conf.fMinThreshold)+".");
-
-                const int32_t val[2] = { -1, conf.fMinThreshold };
-                Dim::SendCommandNB("FTM_CONTROL/SET_THRESHOLD", val);
-
-                fThresholds.assign(160, conf.fMinThreshold);
-
-                const double mjd = Time().Mjd();
-
-                const RateControl::DimThreshold data = { conf.fMinThreshold, mjd, mjd };
-                fDimThreshold.setQuality(3);
-                fDimThreshold.Update(data);
-
-                fTriggerOn = false;
-                fPhysTriggerEnabled = false;
-                return RateControl::State::kSettingGlobalThreshold;
-            }
-
-            if (fDimDrive.state()<Drive::State::kMoving)
-                Warn("Calibration requested, but drive not even moving...");
-        }
-
-        switch (conf.fCalibrationType)
-        {
-        case 0:
-            Info("No calibration requested.");
-            fTriggerOn = false;
-            fPhysTriggerEnabled = false;
-            return RateControl::State::kGlobalThresholdSet;
-            break;
-        }
-
-        Error("CalibrateRun - Calibration type "+to_string(conf.fCalibrationType)+" unknown.");
-        return GetCurrentState();
+        Info("Starting to control thresholds.");
+        return return RateControl::State::kInProgress;
     }
 
     int StopRC()
