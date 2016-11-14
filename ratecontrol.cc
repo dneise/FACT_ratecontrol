@@ -30,32 +30,18 @@ using namespace std;
 #include "DimDescriptionService.h"
 #include "DimState.h"
 
-// ------------------------------------------------------------------------
-
-class StateMachineRateControl : public StateMachineDim//, public DimInfoHandler
+// The threshold T vs. current I dependency is modelled as:
+// T = factor * pow(I, power);
+// where:
+//  - I is the patch current in uA and
+//  - T is the threshold needed to keed the overall camera rate stable.
+struct threshold_vs_current_fit_parameter
 {
-private:
-    struct config
-    {
-        uint16_t fCalibrationType;
-        uint16_t fTargetRate;
-        uint16_t fMinThreshold;
-        uint16_t fAverageTime;
-        uint16_t fRequiredEvents;
-    };
+    double factor;
+    double power;
+};
 
-    // The threshold T vs. current I dependency is modelled as:
-    // T = factor * pow(I, power);
-    // where:
-    //  - I is the patch current in uA and
-    //  - T is the threshold needed to keed the overall camera rate stable.
-    struct threshold_vs_current_fit_parameter
-    {
-        double factor;
-        double power;
-    };
-
-    threshold_vs_current_fit_parameter fits_parameters[160] = {
+threshold_vs_current_fit_parameter fits_parameters[160] = {
         { 133.013, 0.375834 },
         { 128.099, 0.379173 },
         { 122.742, 0.385934 },
@@ -218,6 +204,23 @@ private:
         { 127.381, 0.381882 }
     };
 
+double threshold_from_current(double current, threshold_vs_current_fit_parameter& fit){
+    return fit.factor * pow(current, fit.power);
+};
+
+// ------------------------------------------------------------------------
+
+class StateMachineRateControl : public StateMachineDim//, public DimInfoHandler
+{
+private:
+    struct config
+    {
+        uint16_t fCalibrationType;
+        uint16_t fTargetRate;
+        uint16_t fMinThreshold;
+        uint16_t fAverageTime;
+        uint16_t fRequiredEvents;
+    };
 
     map<string, config> fRunTypes;
 
@@ -227,6 +230,11 @@ private:
     bool fTriggerOn;
 
     DimVersion fDim;
+
+    vector<bool> has_this_FTU_been_mofified_this_time;
+    vector<bool> should_this_FTU_be_ommited_next_time;
+
+
     DimDescribedState fDimFTM;
     DimDescribedState fDimRS;
     DimDescribedState fDimLid;
@@ -259,10 +267,6 @@ private:
 
     double self_board_rate_median;
     double self_board_rate_std;
-
-
-    vector<bool> should_this_FTU_be_ommited_next_time;
-    vector<bool> has_this_FTU_been_mofified_this_time;
 
 
     bool CheckEventSize(const EventImp &evt, size_t size)
@@ -344,7 +348,7 @@ private:
         self_board_rate_median = RateControl::vector_median(board_rates);
         self_patch_rate_median = RateControl::vector_median(patch_rates);
         self_board_rate_std = RateControl::vector_std_from_cdf(board_rates);
-        self_patch_rate_srd = RateControl::vector_std_from_cdf(patch_rates);
+        self_patch_rate_std = RateControl::vector_std_from_cdf(patch_rates);
 
         if (fVerbose)
             Out() << Tools::Form(
@@ -443,7 +447,7 @@ private:
         if (!CheckEventSize(evt, sizeof(FTM::DimTriggerRates)))
             return GetCurrentState();
 
-        const FTM::DimTriggerRates &sdata = *static_cast<const FTM::DimTriggerRates*>(evt.GetData());
+        //const FTM::DimTriggerRates &sdata = *static_cast<const FTM::DimTriggerRates*>(evt.GetData());
 
         //if (GetCurrentState()==RateControl::State::kInProgress)
         //    ProcessPatches(sdata);
