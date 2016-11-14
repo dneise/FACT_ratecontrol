@@ -268,6 +268,7 @@ private:
     double self_board_rate_median;
     double self_board_rate_std;
 
+    vector<uint32_t> fThresholds;
 
     bool CheckEventSize(const EventImp &evt, size_t size)
     {
@@ -282,8 +283,6 @@ private:
         Fatal(msg);
         return false;
     }
-
-    vector<uint32_t> fThresholds;
 
     void PrintThresholds(const FTM::DimStaticData &sdata)
     {
@@ -341,6 +340,9 @@ private:
 
     void ProcessPatches(const FTM::DimTriggerRates &sdata)
     {
+        // write the current rates into a json file with the current
+        // timestamp that's all
+
         const int n_total_patches = 160;
         vector<float> board_rates(sdata.fBoardRate, sdata.fBoardRate+40);
         vector<float> patch_rates(sdata.fPatchRate, sdata.fPatchRate+160);
@@ -435,7 +437,7 @@ private:
 
     int HandleTriggerRates(const EventImp &evt)
     {
-        const FTM::DimTriggerRates &sdata = *static_cast<const FTM::DimTriggerRates*>(evt.GetData());
+        //const FTM::DimTriggerRates &sdata = *static_cast<const FTM::DimTriggerRates*>(evt.GetData());
         return GetCurrentState();
     }
 
@@ -472,21 +474,6 @@ private:
             fCurrentsVec.pop_front();
         }
 
-        // We are not setting thresholds at all
-        if (GetCurrentState() != RateControl::State::kSettingGlobalThreshold)
-            return GetCurrentState();
-
-        // Target thresholds have been assigned already
-        if (!fThresholds.empty())
-            return GetCurrentState();
-
-        // We want at least 8 values for averaging
-        if (fCurrentsMed.size()<fRequiredEvents)
-            return GetCurrentState();
-
-
-        double avg = RateControl::vector_mean(fCurrentsMed);
-        double avg_dev = RateControl::vector_std(fCurrentsMed);
 
         // from the history of the last 10 seconds, we have a list
         // of N, 320 bias current values. We want to assign them to
@@ -494,45 +481,26 @@ private:
         // so we sum these currents up and devide by the number of
         // entries of fCurrentsVec and the number of pixels a patch has.
         vector<double> patch_currents(160);
-        for (auto it=fCurrentsVec.begin(); it!=fCurrentsVec.end(); it++)
+        for (auto currents=fCurrentsVec.begin(); currents!=fCurrentsVec.end(); currents++)
             for (int i=0; i<320; i++)
             {
                 const PixelMapEntry &hv = fMap.hv(i);
                 if (hv)
-                    patch_currents[hv.hw()/9] += (*it)[i]*hv.count() / (fCurrentsVec.size()*9);
+                    patch_currents[hv.hw()/9] += (*currents)[i] * hv.count() / (fCurrentsVec.size()*9);
             }
 
 
-        fThresholdMin = max(uint16_t(156.3*pow(avg, 0.3925)+1), fThresholdReference);
-        fThresholds.assign(160, fThresholdMin);
-
-        int number_of_individual_thresholds_set = 0;
         for (int i=0; i<160; i++)
         {
-            if (patch_currents[i] > avg+3.5*avg_dev)
-            {
-                number_of_individual_thresholds_set += 1;
-                fThresholds[i] = max(uint16_t(40.5*pow(patch_currents[i], 0.642)+164), fThresholdMin);
-            }
+            fThresholds[i] = uint32_t(threshold_from_current(patch_currents[i], fits_parameters[i]));
         }
-
-
 
         Dim::SendCommandNB("FTM_CONTROL/SET_ALL_THRESHOLDS", fThresholds);
 
 
-        const RateControl::DimThreshold data = { fThresholdMin, fCalibrationTimeStart.Mjd(), Time().Mjd() };
+        const RateControl::DimThreshold data = { 10, fCalibrationTimeStart.Mjd(), Time().Mjd() };
         fDimThreshold.setQuality(2);
         fDimThreshold.Update(data);
-
-        ostringstream out;
-        out << setprecision(3);
-        out << "Measured average current " << avg << "uA +- " << avg_dev << "uA [N=" << fCurrentsMed.size() << "]... minimum threshold set to " << fThresholdMin;
-        Info(out);
-        Info("Set "+to_string(number_of_individual_thresholds_set)+" individual thresholds.");
-
-        fTriggerOn = false;
-        fPhysTriggerEnabled = false;
 
         return RateControl::State::kSettingGlobalThreshold;
     }
@@ -540,7 +508,7 @@ private:
     int CalibrateRun(const EventImp &evt)
     {
         Info("Starting to control thresholds.");
-        return return RateControl::State::kInProgress;
+        return RateControl::State::kInProgress;
     }
 
     int StopRC()
