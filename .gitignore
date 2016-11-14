@@ -1,0 +1,7 @@
+*.o
+*.cc
+*.h
+*.lo
+*.c
+.deps
+.dirstamp
