@@ -251,11 +251,6 @@ private:
     uint16_t fAverageTime;
     uint16_t fRequiredEvents;
 
-    list<Time> fCurrentsTime;
-    list<float> fCurrentsMed;
-    list<float> fCurrentsDev;
-    list<vector<float>> fCurrentsVec;
-
     bool fVerbose;
 
     uint64_t fCounter;
@@ -447,48 +442,20 @@ private:
         if (!CheckEventSize(evt, (2*416+8)*4))
             return GetCurrentState();
 
-        // Record only currents when the drive is tracking to avoid
-        // bias from the movement
-        if (fDimDrive.state()<Drive::State::kTracking || fDimLid.state()==Lid::State::kClosed)
-            return GetCurrentState();
-
         // Get time and median current (FIXME: check N?)
         const Time &time = evt.GetTime();
         const float med  = evt.Get<float>(416*4+4+4);
         const float dev  = evt.Get<float>(416*4+4+4+4);
         const float *cur = evt.Ptr<float>();
 
-        // Keep all median currents of the past 10 seconds
-        fCurrentsTime.emplace_back(time);
-        fCurrentsMed.emplace_back(med);
-        fCurrentsDev.emplace_back(dev);
-        fCurrentsVec.emplace_back(vector<float>(cur, cur+320));
-        while (!fCurrentsTime.empty())
-        {
-            if (time - fCurrentsTime.front() < boost::posix_time::seconds(fAverageTime))
-                break;
-
-            fCurrentsTime.pop_front();
-            fCurrentsMed.pop_front();
-            fCurrentsDev.pop_front();
-            fCurrentsVec.pop_front();
-        }
-
-
-        // from the history of the last 10 seconds, we have a list
-        // of N, 320 bias current values. We want to assign them to
-        // their respective patches and kind of average over the last 10 seconds
-        // so we sum these currents up and devide by the number of
-        // entries of fCurrentsVec and the number of pixels a patch has.
         vector<double> patch_currents(160);
-        for (auto currents=fCurrentsVec.begin(); currents!=fCurrentsVec.end(); currents++)
-            for (int i=0; i<320; i++)
-            {
-                const PixelMapEntry &hv = fMap.hv(i);
-                if (hv)
-                    patch_currents[hv.hw()/9] += (*currents)[i] * hv.count() / (fCurrentsVec.size()*9);
-            }
 
+        for (int i=0; i<320; i++)
+        {
+            const PixelMapEntry &hv = fMap.hv(i);
+            if (hv)
+                patch_currents[hv.hw()/9] += cur[i] * hv.count() / 9;
+        }
 
         for (int i=0; i<160; i++)
         {
@@ -496,7 +463,6 @@ private:
         }
 
         Dim::SendCommandNB("FTM_CONTROL/SET_ALL_THRESHOLDS", fThresholds);
-
 
         const RateControl::DimThreshold data = { 10, fCalibrationTimeStart.Mjd(), Time().Mjd() };
         fDimThreshold.setQuality(2);
