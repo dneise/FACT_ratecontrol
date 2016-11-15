@@ -281,14 +281,9 @@ private:
 
     void PrintThresholds(const FTM::DimStaticData &sdata)
     {
-        if (!fVerbose)
-            return;
-
         if (fThresholds.empty())
             return;
 
-        if (GetCurrentState()<=RateControl::State::kConnected)
-            return;
         Out() << "Min. DAC=" << fThresholdMin << endl;
         for (int j=0; j<10; j++) {
             for (int k=0; k<4; k++) {
