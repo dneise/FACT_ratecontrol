@@ -17,6 +17,7 @@
 #include "HeadersLid.h"
 #include "HeadersDrive.h"
 #include "HeadersRateScan.h"
+#include "HeadersFeedback.h"
 #include "HeadersRateControl.h"
 
 namespace ba    = boost::asio;
@@ -265,6 +266,8 @@ private:
 
     vector<uint32_t> fThresholds;
 
+    vector<double> fPatchCurrents;  // currents
+
     bool CheckEventSize(const EventImp &evt, size_t size)
     {
         if (size_t(evt.GetSize())==size)
@@ -403,6 +406,8 @@ private:
             return GetCurrentState();
 
         const FTM::DimStaticData &sdata = *static_cast<const FTM::DimStaticData*>(evt.GetData());
+
+
         fPhysTriggerEnabled = sdata.HasTrigger();
         fTriggerOn = (evt.GetQoS()&FTM::kFtmStates)==FTM::kFtmRunning;
 
@@ -431,40 +436,54 @@ private:
         return GetCurrentState();
     }
 
-    int HandleCalibratedCurrents(const EventImp &evt)
-    {
-        // Check if received event is valid
-        if (!CheckEventSize(evt, (2*416+8)*4))
+    int HandleCalibratedCurrents(const EventImp &evt) {
+        if (!CheckEventSize(evt, sizeof(Feedback::CalibratedCurrentsData)))
             return GetCurrentState();
 
-        // Get time and median current (FIXME: check N?)
-        const Time &time = evt.GetTime();
-        const float med  = evt.Get<float>(416*4+4+4);
-        const float dev  = evt.Get<float>(416*4+4+4+4);
-        const float *cur = evt.Ptr<float>();
+        const Feedback::CalibratedCurrentsData &calibrated_currents = (
+            *static_cast<const Feedback::CalibratedCurrentsData*>(evt.GetData()) );
 
-        vector<double> patch_currents(160);
+        StoreCalibratedCurrents(calibrated_currents);
 
-        for (int i=0; i<320; i++)
-        {
-            const PixelMapEntry &hv = fMap.hv(i);
-            if (hv)
-                patch_currents[hv.hw()/9] += cur[i] * hv.count() / 9;
+        if (GetCurrentState() == RateControl::State::kInProgress){
+            SetThresholdAccordingToPatchCurrents();
         }
 
-        for (int i=0; i<160; i++)
-        {
-            fThresholds[i] = uint32_t(threshold_from_current(patch_currents[i], fits_parameters[i]));
-        }
-
-        Dim::SendCommandNB("FTM_CONTROL/SET_ALL_THRESHOLDS", fThresholds);
-
-        const RateControl::DimThreshold data = { 10, fCalibrationTimeStart.Mjd(), Time().Mjd() };
-        fDimThreshold.setQuality(2);
-        fDimThreshold.Update(data);
-
-        return RateControl::State::kSettingGlobalThreshold;
+        return GetCurrentState();
     }
+
+    void StoreCalibratedCurrents(const Feedback::CalibratedCurrentsData& currents){
+        /* put currents from 320-bias-channels into 160 patches.
+           the mapping is non-trivial.
+        */
+        const int pixel_per_patch = 9;
+        const int n_patches = fPatchCurrents.size();
+        fPatchCurrents.assign(n_patches, 0.0);
+
+        for (int bias_channel_id=0; bias_channel_id<BIAS::kNumChannels; bias_channel_id++)
+        {
+            const PixelMapEntry &hv = fMap.hv(bias_channel_id);
+            // ToDo: Do not check at run-time, what can be checked at compile time.
+            if (hv){
+                int patch_id = hv.hw()/pixel_per_patch;
+                double bias_weight = hv.count() / pixel_per_patch;
+                fPatchCurrents[patch_id] += currents.I[bias_channel_id] * bias_weight;
+            }
+            else{
+                Out() << "Error in StoreCalibratedCurrents; this should never happen" << endl;
+            }
+        }
+    }
+
+    void SetThresholdAccordingToPatchCurrents(void){
+        for (int patch_id=0; patch_id<fPatchCurrents.size(); patch_id++)
+        {
+            fThresholds[patch_id] = uint32_t(threshold_from_current(patch_currents[patch_id], fits_parameters[patch_id]));
+        }
+        Dim::SendCommandNB("FTM_CONTROL/SET_ALL_THRESHOLDS", fThresholds);
+    }
+
+
 
     int CalibrateRun(const EventImp &evt)
     {
