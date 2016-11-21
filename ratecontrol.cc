@@ -400,11 +400,6 @@ private:
 
     DimDescribedService fDimThreshold;
 
-    float  fTriggerRate;
-
-    uint16_t fThresholdMin;
-    uint16_t fThresholdReference;
-
     uint16_t fAverageTime;
     uint16_t fRequiredEvents;
 
@@ -540,14 +535,6 @@ private:
         return RateControl::State::kConnected;
     }
 
-    int SetMinThreshold(const EventImp &evt)
-    {
-        if (!CheckEventSize(evt, 4))
-            return kSM_FatalError;
-        fThresholdReference = evt.GetUShort();
-        return GetCurrentState();
-    }
-
     int Print() const
     {
         Out() << fDim << endl;
@@ -651,10 +638,6 @@ public:
             (bind(&StateMachineRateControl::StopRC, this))
             ("Stop a calibration or ratescan in progress");
 
-        AddEvent("SET_MIN_THRESHOLD", "I:1")
-            (bind(&StateMachineRateControl::SetMinThreshold, this, placeholders::_1))
-            ("Set a minimum threshold at which th rate control starts calibrating");
-
         AddEvent("PRINT")
             (bind(&StateMachineRateControl::Print, this))
             ("Print current status");
@@ -687,9 +670,6 @@ public:
             Error("Reading mapping table from "+conf.Get<string>("pixel-map-file")+" failed.");
             return 1;
         }
-
-        fThresholdReference = 300;
-        fThresholdMin       = 300;
 
         fAverageTime        =  10;
         fRequiredEvents     =   8;
