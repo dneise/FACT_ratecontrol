@@ -190,7 +190,7 @@ private:
         if (fDimRS.state()>=RateScan::State::kConfiguring)
             return RateControl::State::kConnected;
 
-        return RateControl::State::kConnected;
+        return GetCurrentState();
     }
 
 public:
