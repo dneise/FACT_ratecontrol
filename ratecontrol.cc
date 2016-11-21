@@ -112,7 +112,7 @@ private:
     }
 
     vector<uint32_t>
-    CombineThresholds(const vector<uint32_t> bias_patch_thresholds){
+    CombineThresholds(const vector<uint32_t>& bias_patch_thresholds){
         // t : TriggerPatch ID
         // b_4 : BiasPatch ID of associated bias patch with 4 pixel
         // b_5 : BiasPatch ID of associated bias patch with 5 pixel
