@@ -392,12 +392,7 @@ private:
     };
     state_control_t fStateControl;
 
-
     DimVersion fDim;
-
-    vector<bool> has_this_FTU_been_mofified_this_time;
-    vector<bool> should_this_FTU_be_ommited_next_time;
-
 
     DimDescribedState fDimFTM;
     DimDescribedState fDimRS;
@@ -616,8 +611,6 @@ private:
 
 public:
     StateMachineRateControl(ostream &out=cout) : StateMachineDim(out, "RATE_CONTROL"),
-        has_this_FTU_been_mofified_this_time(40),
-        should_this_FTU_be_ommited_next_time(40),
         fDimFTM("FTM_CONTROL"),
         fDimRS("RATE_SCAN"),
         fDimThreshold("RATE_CONTROL/THRESHOLD", "S:1;D:1;D:1",
