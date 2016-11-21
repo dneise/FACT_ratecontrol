@@ -150,7 +150,7 @@ private:
         // b_5 : BiasPatch ID of associated bias patch with 5 pixel
         const int pixel_per_patch = 9;
         vector<uint32_t> trigger_patch_thresholds(160, 0);
-        for(int t=0; t < trigger_patch_thresholds.size(); t++){
+        for(unsigned int t=0; t < trigger_patch_thresholds.size(); t++){
             const int b_4 = fMap.hw(t*pixel_per_patch).hv();
             const int b_5 = fMap.hw(t*pixel_per_patch + pixel_per_patch/2).hv();
             trigger_patch_thresholds[t] = max(b_4, b_5);
