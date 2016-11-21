@@ -477,8 +477,6 @@ private:
         if (GetCurrentState() == RateControl::State::kInProgress){
             SetThresholds(fLastThresholdsSetByUs);
         }
-
-        fThresholds.assign(sdata.fThreshold, sdata.fThreshold+160);
         return GetCurrentState();
     }
 
