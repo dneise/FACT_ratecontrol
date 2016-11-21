@@ -60,8 +60,6 @@ private:
     bool fTriggerOn;
 
     vector<uint32_t> fLastThresholdsReadFromFTM;
-    vector<uint32_t> fLastThresholdsSetByUs;
-    vector<double> fBiasPatchCurrents;  // currents
 
     bool CheckEventSize(const EventImp &evt, size_t size)
     {
@@ -101,12 +99,12 @@ private:
         const Feedback::CalibratedCurrentsData &calibrated_currents = (
             *static_cast<const Feedback::CalibratedCurrentsData*>(evt.GetData()) );
 
-        fBiasPatchCurrents = GetCalibratedCurrentsFromCalibratedCurrentsData(calibrated_currents);
-        auto foo = CalcThresholdsFromCurrents(fBiasPatchCurrents);
-        fLastThresholdsSetByUs = CombineThresholds(foo);
+        auto bias_currents = GetCalibratedCurrentsFromCalibratedCurrentsData(calibrated_currents);
+        auto bias_patch_thresholds = CalcThresholdsFromCurrents(bias_currents);
+        auto trigger_patch_thresholds = CombineThresholds(bias_patch_thresholds);
 
         if (GetCurrentState() == RateControl::State::kInProgress){
-            SetThresholds(fLastThresholdsSetByUs);
+            SetThresholds(trigger_patch_thresholds);
         }
         return GetCurrentState();
     }
@@ -172,24 +170,6 @@ private:
         Out() << fDimRS << endl;
         return GetCurrentState();
     }
-
-    void PrintThresholds(vector<uint32_t> thresholds) {
-        if (thresholds.empty() || thresholds.size() != 160)
-            return;
-
-        for (int j=0; j<10; j++) {
-            for (int k=0; k<4; k++) {
-                for (int i=0; i<4; i++) {
-                    const int p = i + k*4 + j*16;
-                        Out() << setw(3) << thresholds[p] << " ";
-                }
-                Out() << "   ";
-            }
-            Out() << endl;
-        }
-        Out() << endl;
-    }
-
 
     int SetVerbosity(const EventImp &evt)
     {
