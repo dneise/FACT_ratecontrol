@@ -67,7 +67,14 @@ namespace RateControl
         T copy_v(v);
         std::sort(copy_v.begin(), copy_v.end());
 
-        double frac = copy_v.size() / 1.1886;
+
+        // This magic number is calculated like this:
+        //      0.84134474606854293 = 2 * (1 + erf(1 / sqrt(2) )
+        // Is the point on the y-axis of the cdf of a random variable one
+        // has too look for, when one wants to find the point on the x-axis,
+        // where (assuming a normal distribution) one is one sigma
+        // away from the median.
+        double frac = copy_v.size() * 0.84134474606854293;
         const int left = int(floor(frac));
         const int right = int(ceil(frac));
 
