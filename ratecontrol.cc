@@ -48,24 +48,16 @@ private:
     };
 
     map<string, config> fRunTypes;
-
     PixelMap fMap;
 
-    struct state_control_t{
-        bool fPhysTriggerEnabled;
-        bool fTriggerOn;
-    };
-    state_control_t fStateControl;
-
     DimVersion fDim;
-
     DimDescribedState fDimFTM;
     DimDescribedState fDimRS;
-
-
     DimDescribedService fDimThreshold;
 
     bool fVerbose;
+    bool fPhysTriggerEnabled;
+    bool fTriggerOn;
 
     vector<uint32_t> fLastThresholdsReadFromFTM;
     vector<uint32_t> fLastThresholdsSetByUs;
@@ -91,8 +83,8 @@ private:
 
         const FTM::DimStaticData &sdata = *static_cast<const FTM::DimStaticData*>(evt.GetData());
 
-        fStateControl.fPhysTriggerEnabled = sdata.HasTrigger();
-        fStateControl.fTriggerOn = (evt.GetQoS()&FTM::kFtmStates)==FTM::kFtmRunning;
+        fPhysTriggerEnabled = sdata.HasTrigger();
+        fTriggerOn = (evt.GetQoS()&FTM::kFtmStates)==FTM::kFtmRunning;
         fLastThresholdsReadFromFTM.assign(sdata.fThreshold, sdata.fThreshold+160);
 
         return GetCurrentState();
@@ -153,7 +145,7 @@ private:
     }
 
     void SetThresholds(vector<uint32_t>& thresholds){
-        if (fStateControl.fTriggerOn){
+        if (fTriggerOn){
             Dim::SendCommandNB("FTM_CONTROL/SET_SELECTED_THRESHOLDS", thresholds);
         } else {
             Dim::SendCommandNB("FTM_CONTROL/SET_ALL_THRESHOLDS", thresholds);
@@ -235,8 +227,8 @@ public:
                       "|begin[mjd]:Start time of calibration"
                       "|end[mjd]:End time of calibration")
     {
-        fStateControl.fPhysTriggerEnabled = false;
-        fStateControl.fTriggerOn = false;
+        fPhysTriggerEnabled = false;
+        fTriggerOn = false;
 
         fDim.Subscribe(*this);
         fDimFTM.Subscribe(*this);
