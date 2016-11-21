@@ -59,8 +59,6 @@ private:
     bool fPhysTriggerEnabled;
     bool fTriggerOn;
 
-    vector<uint32_t> fLastThresholdsReadFromFTM;
-
     bool CheckEventSize(const EventImp &evt, size_t size)
     {
         if (size_t(evt.GetSize())==size)
@@ -83,8 +81,6 @@ private:
 
         fPhysTriggerEnabled = sdata.HasTrigger();
         fTriggerOn = (evt.GetQoS()&FTM::kFtmStates)==FTM::kFtmRunning;
-        fLastThresholdsReadFromFTM.assign(sdata.fThreshold, sdata.fThreshold+160);
-
         return GetCurrentState();
     }
 
