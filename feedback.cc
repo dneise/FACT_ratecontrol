@@ -15,7 +15,6 @@
 #include "LocalControl.h"
 
 #include "HeadersFSC.h"
-#include "HeadersBIAS.h"
 #include "HeadersFeedback.h"
 
 #include "DimState.h"
@@ -51,7 +50,7 @@ private:
 
     vector<float>    fVoltGapd;     // Nominal breakdown voltage + 1.1V
     vector<float>    fBiasVolt;     // Output voltage as reported by bias crate (voltage between R10 and R8)
-    vector<float>    fBiasR9;       // 
+    vector<float>    fBiasR9;       //
     vector<uint16_t> fBiasDac;      // Dac value corresponding to the voltage setting
 
     vector<float>    fCalibration;
@@ -539,25 +538,9 @@ private:
         med[1].resize(BIAS::kNumChannels);
         med[2].resize(BIAS::kNumChannels);
 
-        struct dim_data
-        {
-            float I[BIAS::kNumChannels];
-            float Iavg;
-            float Irms;
-            float Imed;
-            float Idev;
-            uint32_t N;
-            float Tdiff;
-            float Uov[BIAS::kNumChannels];
-            float Unom;
-            float dUtemp;
-
-            dim_data() { memset(this, 0, sizeof(dim_data)); }
-        } __attribute__((__packed__));
-
         int Ndev[3] = { 0, 0, 0 };
 
-        dim_data data;
+        Feedback::CalibratedCurrentsData data;
 
         data.Unom   = voltageoffset;
         data.dUtemp = fTempOffsetAvg;
@@ -895,7 +878,7 @@ private:
         //  + User offset
         //  + Command overvoltage
         fDimCurrents.setQuality(GetCurrentState());
-        fDimCurrents.setData(&data, sizeof(dim_data));
+        fDimCurrents.setData(&data, sizeof(Feedback::CalibratedCurrentsData));
         fDimCurrents.Update(evt.GetTime());
 
         // FIXME: To be checked
@@ -1182,7 +1165,7 @@ private:
 
 public:
     StateMachineFeedback(ostream &out=cout) : StateMachineDim(out, "FEEDBACK"),
-        fIsVerbose(false), 
+        fIsVerbose(false),
         //---
         fDimFSC("FSC_CONTROL"),
         fDimBias("BIAS_CONTROL"),
