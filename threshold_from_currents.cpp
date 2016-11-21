@@ -339,7 +339,7 @@ vector<uint32_t>
 CalcThresholdsFromCurrents(const vector<double> currents){
     // b : BiasPatch ID
     vector<uint32_t> bias_patch_thresholds(320, 0);
-    for(int b=0; b<currents.size(); b++){
+    for(unsigned int b=0; b<currents.size(); b++){
         threshold_vs_current_fit_parameter fit = fits_parameters[b];
         bias_patch_thresholds[b] = uint32_t(fit.constant + fit.factor * pow(currents[b], fit.power));
     }
