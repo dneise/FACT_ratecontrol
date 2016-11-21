@@ -225,11 +225,10 @@ public:
                       "Resulting threshold after calibration"
                       "|threshold[dac]:Resulting threshold from calibration"
                       "|begin[mjd]:Start time of calibration"
-                      "|end[mjd]:End time of calibration")
+                      "|end[mjd]:End time of calibration"),
+        fPhysTriggerEnabled(false),
+        fTriggerOn(false)
     {
-        fPhysTriggerEnabled = false;
-        fTriggerOn = false;
-
         fDim.Subscribe(*this);
         fDimFTM.Subscribe(*this);
         fDimRS.Subscribe(*this);
