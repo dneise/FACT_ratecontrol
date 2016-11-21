@@ -17,6 +17,7 @@
 #include "HeadersLid.h"
 #include "HeadersDrive.h"
 #include "HeadersRateScan.h"
+#include "HeadersFeedback.h"
 #include "HeadersRateControl.h"
 
 namespace ba    = boost::asio;
@@ -30,9 +31,11 @@ using namespace std;
 #include "DimDescriptionService.h"
 #include "DimState.h"
 
+#include "threshold_from_currents.cpp"
+
 // ------------------------------------------------------------------------
 
-class StateMachineRateControl : public StateMachineDim//, public DimInfoHandler
+class StateMachineRateControl : public StateMachineDim
 {
 private:
     struct config
@@ -45,50 +48,16 @@ private:
     };
 
     map<string, config> fRunTypes;
-
     PixelMap fMap;
-
-    bool fPhysTriggerEnabled;
-    bool fTriggerOn;
 
     DimVersion fDim;
     DimDescribedState fDimFTM;
     DimDescribedState fDimRS;
-    DimDescribedState fDimLid;
-    DimDescribedState fDimDrive;
-
     DimDescribedService fDimThreshold;
 
-    float  fTargetRate;
-    float  fTriggerRate;
-
-    uint16_t fThresholdMin;
-    uint16_t fThresholdReference;
-
-    uint16_t fAverageTime;
-    uint16_t fRequiredEvents;
-
-    list<Time> fCurrentsTime;
-    list<float> fCurrentsMed;
-    list<float> fCurrentsDev;
-    list<vector<float>> fCurrentsVec;
-
     bool fVerbose;
-
-    uint64_t fCounter;
-
-    Time fCalibrationTimeStart;
-
-    double self_patch_rate_median;
-    double self_patch_rate_std;
-
-    double self_board_rate_median;
-    double self_board_rate_std;
-
-
-    vector<bool> should_this_FTU_be_ommited_next_time;
-    vector<bool> has_this_FTU_been_mofified_this_time;
-
+    bool fPhysTriggerEnabled;
+    bool fTriggerOn;
 
     bool CheckEventSize(const EventImp &evt, size_t size)
     {
@@ -104,380 +73,84 @@ private:
         return false;
     }
 
-    vector<uint32_t> fThresholds;
 
-    void PrintThresholds(const FTM::DimStaticData &sdata)
-    {
-        if (!fVerbose)
-            return;
-
-        if (fThresholds.empty())
-            return;
-
-        if (GetCurrentState()<=RateControl::State::kConnected)
-            return;
-        Out() << "Min. DAC=" << fThresholdMin << endl;
-        for (int j=0; j<10; j++) {
-            for (int k=0; k<4; k++) {
-                for (int i=0; i<4; i++) {
-                    const int p = i + k*4 + j*16;
-                    if (fThresholds[p]!=fThresholdMin)
-                        Out() << setw(3) << fThresholds[p];
-                    else
-                        Out() << " - ";
-
-                    if (fThresholds[p]!=sdata.fThreshold[p])
-                        Out() << "!";
-                    else
-                        Out() << " ";
-                }
-                Out() << "   ";
-            }
-            Out() << endl;
-        }
-        Out() << endl;
-    }
-
-    bool Step(int patch_id, float step)
-    {
-        uint32_t diff = fThresholds[patch_id]+int16_t(truncf(step));
-        if (diff<fThresholdMin)
-            diff=fThresholdMin;
-        if (diff>0xffff)
-            diff = 0xffff;
-
-        if (diff==fThresholds[patch_id])
-            return false;
-
-        if (fVerbose)
-        {
-            Out() << "Apply: Patch " << setw(3) << patch_id << " [" << patch_id/40 << "|" << (patch_id/4)%10 << "|" << patch_id%4 << "]";
-            Out() << (step>0 ? " += " : " -= ");
-            Out() << fabs(step) << " (old=" << fThresholds[patch_id] << ", new=" << diff << ")" << endl;
-        }
-
-        fThresholds[patch_id] = diff;
-        return true;
-    }
-
-    void ProcessPatches(const FTM::DimTriggerRates &sdata)
-    {
-        const int n_total_patches = 160;
-
-        // Caluclate Median and deviation
-        vector<float> medb(sdata.fBoardRate, sdata.fBoardRate+40);
-        vector<float> medp(sdata.fPatchRate, sdata.fPatchRate+160);
-
-        sort(medb.begin(), medb.end());
-        sort(medp.begin(), medp.end());
-
-        vector<float> devb(40);
-        for (int i=0; i<40; i++)
-            devb[i] = fabs(sdata.fBoardRate[i]-medb[i]);
-
-        vector<float> devp(160);
-        for (int i=0; i<160; i++)
-            devp[i] = fabs(sdata.fPatchRate[i]-medp[i]);
-
-        sort(devb.begin(), devb.end());
-        sort(devp.begin(), devp.end());
-
-        self_board_rate_median = (medb[19]+medb[20])/2;
-        if (self_board_rate_median){
-            Out() << "Median Board Rate is zero, something is wrong" << endl;
-            return;
-        }
-
-        self_patch_rate_median = (medp[79]+medp[80])/2;
-        if (self_patch_rate_median){
-            Out() << "Patch Board Rate is zero, something is wrong" << endl;
-            return;
-        }
-
-        self_board_rate_std = devb[27];
-        if (self_board_rate_std){
-            Out() << "Board Rate std deviation is zero, something is wrong" << endl;
-            return;
-        }
-
-        self_patch_rate_std = devp[109];
-        if (self_patch_rate_std){
-            Out() << "Patch Rate std deviation is zero, something is wrong" << endl;
-            return;
-        }
-
-        if (fVerbose)
-            Out() << Tools::Form(
-                "Boards: Med=%3.1f +- %3.1f Hz   Patches: Med=%3.1f +- %3.1f Hz",
-                self_board_rate_median, self_board_rate_std,
-                self_patch_rate_median, self_patch_rate_std) << endl;
-
-        bool changed = false;
-
-        for (int patch_id=0; patch_id < n_total_patches; patch_id++){
-            float this_patch_rate = sdata.fPatchRate[patch_id];
-            int board_id = patch_id / 4;
-            if (should_this_FTU_be_ommited_next_time[board_id]){
-                continue;
-            }
-            // Adjust thresholds of all patches towards the median patch rate
-            float step;
-            if (this_patch_rate < self_patch_rate_median)
-            {
-                 step = (
-                    log10(this_patch_rate)
-                    - log10(self_patch_rate_median + 3.5 * self_patch_rate_std)
-                    ) / 0.039;
-            } else {
-                step =  -1.5 * (log10(self_patch_rate_median + self_patch_rate_std) - log10(self_patch_rate_median))/0.039;
-            }
-            changed |= Step(patch_id, step);
-            has_this_FTU_been_mofified_this_time[board_id] = true;
-        }
-        should_this_FTU_be_ommited_next_time = has_this_FTU_been_mofified_this_time;
-
-        if (changed)
-            Dim::SendCommandNB("FTM_CONTROL/SET_SELECTED_THRESHOLDS", fThresholds);
-    }
-
-    int HandleStaticData(const EventImp &evt)
-    {
-        if (!CheckEventSize(evt, sizeof(FTM::DimStaticData)))
-            return GetCurrentState();
+    int HandleStaticData(const EventImp &evt) {
+        if (!CheckEventSize(evt, sizeof(FTM::DimStaticData))) return GetCurrentState();
 
         const FTM::DimStaticData &sdata = *static_cast<const FTM::DimStaticData*>(evt.GetData());
+
         fPhysTriggerEnabled = sdata.HasTrigger();
         fTriggerOn = (evt.GetQoS()&FTM::kFtmStates)==FTM::kFtmRunning;
-
-        Out() << "\n" << evt.GetTime() << ": " << (bool)fTriggerOn << " " << (bool)fPhysTriggerEnabled << endl;
-        PrintThresholds(sdata);
-
-        if (GetCurrentState()==RateControl::State::kSettingGlobalThreshold)
-        {
-            if (fThresholds.empty())
-                return RateControl::State::kSettingGlobalThreshold;
-
-            if (!std::equal(sdata.fThreshold, sdata.fThreshold+160, fThresholds.begin()))
-                return RateControl::State::kSettingGlobalThreshold;
-
-            return RateControl::State::kGlobalThresholdSet;
-        }
-
-        fThresholds.assign(sdata.fThreshold, sdata.fThreshold+160);
-
         return GetCurrentState();
     }
 
-    int HandleTriggerRates(const EventImp &evt)
-    {
-        fTriggerOn = (evt.GetQoS()&FTM::kFtmStates)==FTM::kFtmRunning;
-
-        if (fThresholds.empty())
-            return GetCurrentState();
-
-        if (GetCurrentState()<=RateControl::State::kConnected ||
-            GetCurrentState()==RateControl::State::kGlobalThresholdSet)
-            return GetCurrentState();
-
-        if (!CheckEventSize(evt, sizeof(FTM::DimTriggerRates)))
-            return GetCurrentState();
-
-        const FTM::DimTriggerRates &sdata = *static_cast<const FTM::DimTriggerRates*>(evt.GetData());
-
-        if (GetCurrentState()==RateControl::State::kInProgress)
-            ProcessPatches(sdata);
-
+    int HandleTriggerRates(const EventImp &evt) {
+        //const FTM::DimTriggerRates &sdata = *static_cast<const FTM::DimTriggerRates*>(evt.GetData());
         return GetCurrentState();
     }
 
-    int HandleCalibratedCurrents(const EventImp &evt)
-    {
-        // Check if received event is valid
-        if (!CheckEventSize(evt, (2*416+8)*4))
-            return GetCurrentState();
+    int HandleCalibratedCurrents(const EventImp &evt) {
+        if (!CheckEventSize(evt, sizeof(Feedback::CalibratedCurrentsData))) return GetCurrentState();
 
-        // Record only currents when the drive is tracking to avoid
-        // bias from the movement
-        if (fDimDrive.state()<Drive::State::kTracking || fDimLid.state()==Lid::State::kClosed)
-            return GetCurrentState();
+        const Feedback::CalibratedCurrentsData &calibrated_currents = (
+            *static_cast<const Feedback::CalibratedCurrentsData*>(evt.GetData()) );
 
-        // Get time and median current (FIXME: check N?)
-        const Time &time = evt.GetTime();
-        const float med  = evt.Get<float>(416*4+4+4);
-        const float dev  = evt.Get<float>(416*4+4+4+4);
-        const float *cur = evt.Ptr<float>();
+        auto bias_currents = GetCalibratedCurrentsFromCalibratedCurrentsData(calibrated_currents);
+        auto bias_patch_thresholds = CalcThresholdsFromCurrents(bias_currents);
+        auto trigger_patch_thresholds = CombineThresholds(bias_patch_thresholds);
 
-        // Keep all median currents of the past 10 seconds
-        fCurrentsTime.emplace_back(time);
-        fCurrentsMed.emplace_back(med);
-        fCurrentsDev.emplace_back(dev);
-        fCurrentsVec.emplace_back(vector<float>(cur, cur+320));
-        while (!fCurrentsTime.empty())
-        {
-            if (time - fCurrentsTime.front() < boost::posix_time::seconds(fAverageTime))
-                break;
-
-            fCurrentsTime.pop_front();
-            fCurrentsMed.pop_front();
-            fCurrentsDev.pop_front();
-            fCurrentsVec.pop_front();
+        if (GetCurrentState() == RateControl::State::kInProgress){
+            SetThresholds(trigger_patch_thresholds);
         }
-
-        // We are not setting thresholds at all
-        if (GetCurrentState() != RateControl::State::kSettingGlobalThreshold)
-            return GetCurrentState();
-
-        // Target thresholds have been assigned already
-        if (!fThresholds.empty())
-            return GetCurrentState();
-
-        // We want at least 8 values for averaging
-        if (fCurrentsMed.size()<fRequiredEvents)
-            return GetCurrentState();
-
-
-        double avg = RateControl::vector_mean(fCurrentsMed);
-        double avg_dev = RateControl::vector_std(fCurrentsMed);
-
-        // from the history of the last 10 seconds, we have a list
-        // of N, 320 bias current values. We want to assign them to
-        // their respective patches and kind of average over the last 10 seconds
-        // so we sum these currents up and devide by the number of
-        // entries of fCurrentsVec and the number of pixels a patch has.
-        vector<double> patch_currents(160);
-        for (auto it=fCurrentsVec.begin(); it!=fCurrentsVec.end(); it++)
-            for (int i=0; i<320; i++)
-            {
-                const PixelMapEntry &hv = fMap.hv(i);
-                if (hv)
-                    patch_currents[hv.hw()/9] += (*it)[i]*hv.count() / (fCurrentsVec.size()*9);
-            }
-
-
-        fThresholdMin = max(uint16_t(156.3*pow(avg, 0.3925)+1), fThresholdReference);
-        fThresholds.assign(160, fThresholdMin);
-
-        int number_of_individual_thresholds_set = 0;
-        double avg2 = RateControl::vector_mean(patch_currents);
-        for (int i=0; i<160; i++)
-        {
-            if (patch_currents[i] > avg+3.5*avg_dev)
-            {
-                number_of_individual_thresholds_set += 1;
-                fThresholds[i] = max(uint16_t(40.5*pow(patch_currents[i], 0.642)+164), fThresholdMin);
-            }
-        }
-
-
-
-        Dim::SendCommandNB("FTM_CONTROL/SET_ALL_THRESHOLDS", fThresholds);
-
-
-        const RateControl::DimThreshold data = { fThresholdMin, fCalibrationTimeStart.Mjd(), Time().Mjd() };
-        fDimThreshold.setQuality(2);
-        fDimThreshold.Update(data);
-
-        ostringstream out;
-        out << setprecision(3);
-        out << "Measured average current " << avg << "uA +- " << avg_dev << "uA [N=" << fCurrentsMed.size() << "]... minimum threshold set to " << fThresholdMin;
-        Info(out);
-        Info("Set "+to_string(number_of_individual_thresholds_set)+" individual thresholds.");
-
-        fTriggerOn = false;
-        fPhysTriggerEnabled = false;
-
-        return RateControl::State::kSettingGlobalThreshold;
+        return GetCurrentState();
     }
 
-    int CalibrateByCurrent()
-    {
-        fCounter = 0;
-        fCalibrationTimeStart = Time();
-        has_this_FTU_been_mofified_this_time.assign(40, false);
-        should_this_FTU_be_ommited_next_time.assign(40, false);
-
-        fThresholds.clear();
-
-        ostringstream out;
-        out << "Rate calibration by current with min. threshold of " << fThresholdReference << ".";
-        Info(out);
-
-        return RateControl::State::kSettingGlobalThreshold;
+    vector<double>
+    GetCalibratedCurrentsFromCalibratedCurrentsData(const Feedback::CalibratedCurrentsData& currents){
+        vector<double> tmp(currents.I, currents.I + BIAS::kNumChannels);
+        return move(tmp);
     }
+
+    vector<uint32_t>
+    CombineThresholds(const vector<uint32_t>& bias_patch_thresholds){
+        // t : TriggerPatch ID
+        // b_4 : BiasPatch ID of associated bias patch with 4 pixel
+        // b_5 : BiasPatch ID of associated bias patch with 5 pixel
+        const int pixel_per_patch = 9;
+        vector<uint32_t> trigger_patch_thresholds(160, 0);
+        for(unsigned int t=0; t < trigger_patch_thresholds.size(); t++){
+            const int b_4 = fMap.hw(t*pixel_per_patch).hv();
+            const int b_5 = fMap.hw(t*pixel_per_patch + pixel_per_patch/2).hv();
+            trigger_patch_thresholds[t] = max(b_4, b_5);
+        }
+        // exceptions for broken patches:
+        // ---------------------------------------------------------------
+        // We have 4 bias patches, which are broken, i.e. the current vs threshold
+        // dependency was not fittable.
+        // Luckily the neighboring bias patch works and can be used for setting
+        // the threshold. In case there is a star in the broken patch, this patch
+        // will fire like crazy since the threshold is derived from the neighboring
+        // patch, which has a much lower current.
+        trigger_patch_thresholds[19] = bias_patch_thresholds[39];  // 38 is dead
+        trigger_patch_thresholds[33] = bias_patch_thresholds[67];  // 66 is crazy
+        trigger_patch_thresholds[95] = bias_patch_thresholds[190];  // 191 is crazy
+        trigger_patch_thresholds[96] = bias_patch_thresholds[192];  // 193 is crazy
+        return move(trigger_patch_thresholds);
+    }
+
+    void SetThresholds(vector<uint32_t>& thresholds){
+        if (fTriggerOn){
+            Dim::SendCommandNB("FTM_CONTROL/SET_SELECTED_THRESHOLDS", thresholds);
+        } else {
+            Dim::SendCommandNB("FTM_CONTROL/SET_ALL_THRESHOLDS", thresholds);
+        }
+    }
+
 
     int CalibrateRun(const EventImp &evt)
     {
-        const string name = evt.GetText();
-
-        auto it = fRunTypes.find(name);
-        if (it==fRunTypes.end())
-        {
-            Info("CalibrateRun - Run-type '"+name+"' not found... trying 'default'.");
-
-            it = fRunTypes.find("default");
-            if (it==fRunTypes.end())
-            {
-                Error("CalibrateRun - Run-type 'default' not found.");
-                return GetCurrentState();
-            }
-        }
-
-        const config &conf = it->second;
-
-        if (conf.fCalibrationType!=0)
-        {
-
-            if (!fPhysTriggerEnabled)
-            {
-                Info("Calibration requested, but physics trigger not enabled... CALIBRATE command ignored.");
-
-                fTriggerOn = false;
-                fPhysTriggerEnabled = false;
-                return RateControl::State::kGlobalThresholdSet;
-            }
-
-            if (fDimLid.state()==Lid::State::kClosed)
-            {
-                Info("Calibration requested, but lid closed... setting all thresholds to "+to_string(conf.fMinThreshold)+".");
-
-                const int32_t val[2] = { -1, conf.fMinThreshold };
-                Dim::SendCommandNB("FTM_CONTROL/SET_THRESHOLD", val);
-
-                fThresholds.assign(160, conf.fMinThreshold);
-
-                const double mjd = Time().Mjd();
-
-                const RateControl::DimThreshold data = { conf.fMinThreshold, mjd, mjd };
-                fDimThreshold.setQuality(3);
-                fDimThreshold.Update(data);
-
-                fTriggerOn = false;
-                fPhysTriggerEnabled = false;
-                return RateControl::State::kSettingGlobalThreshold;
-            }
-
-            if (fDimDrive.state()<Drive::State::kMoving)
-                Warn("Calibration requested, but drive not even moving...");
-        }
-
-        switch (conf.fCalibrationType)
-        {
-        case 0:
-            Info("No calibration requested.");
-            fTriggerOn = false;
-            fPhysTriggerEnabled = false;
-            return RateControl::State::kGlobalThresholdSet;
-            break;
-
-        case 2:
-            fThresholdReference = conf.fMinThreshold;
-            fAverageTime = conf.fAverageTime;
-            fRequiredEvents = conf.fRequiredEvents;
-            return CalibrateByCurrent();
-        }
-
-        Error("CalibrateRun - Calibration type "+to_string(conf.fCalibrationType)+" unknown.");
-        return GetCurrentState();
+        Info("Starting to control thresholds.");
+        return RateControl::State::kInProgress;
     }
 
     int StopRC()
@@ -486,29 +159,11 @@ private:
         return RateControl::State::kConnected;
     }
 
-    int SetMinThreshold(const EventImp &evt)
-    {
-        if (!CheckEventSize(evt, 4))
-            return kSM_FatalError;
-        fThresholdReference = evt.GetUShort();
-        return GetCurrentState();
-    }
-
-    int SetTargetRate(const EventImp &evt)
-    {
-        if (!CheckEventSize(evt, 4))
-            return kSM_FatalError;
-        fTargetRate = evt.GetFloat();
-        return GetCurrentState();
-    }
-
     int Print() const
     {
         Out() << fDim << endl;
         Out() << fDimFTM << endl;
         Out() << fDimRS << endl;
-        Out() << fDimLid << endl;
-        Out() << fDimDrive << endl;
         return GetCurrentState();
     }
 
@@ -526,58 +181,36 @@ private:
             return RateControl::State::kDimNetworkNA;
 
         // All subsystems are not connected
-        if (fDimFTM.state()<FTM::State::kConnected || fDimDrive.state()<Drive::State::kConnected)
+        if ( fDimFTM.state() < FTM::State::kConnected )
+        {
             return RateControl::State::kDisconnected;
+        }
 
         // Do not allow any action while a ratescan is configured or in progress
         if (fDimRS.state()>=RateScan::State::kConfiguring)
             return RateControl::State::kConnected;
 
-        switch (GetCurrentState())
-        {
-        case RateControl::State::kSettingGlobalThreshold:
-            return RateControl::State::kSettingGlobalThreshold;
+	if (GetCurrentState() < RateControl::State::kConnected)
+	    return RateControl::State::kConnected;
 
-        case RateControl::State::kGlobalThresholdSet:
-
-            // Wait for the trigger to get switched on before starting control loop
-            if (fTriggerOn && fPhysTriggerEnabled)
-                return RateControl::State::kInProgress;
-
-            return RateControl::State::kGlobalThresholdSet;
-
-        case RateControl::State::kInProgress:
-
-            // Go back to connected when the trigger has been switched off
-            if (!fTriggerOn || !fPhysTriggerEnabled)
-                return RateControl::State::kConnected;
-
-            return RateControl::State::kInProgress;
-        }
-
-        return RateControl::State::kConnected;
+        return GetCurrentState();
     }
 
 public:
     StateMachineRateControl(ostream &out=cout) : StateMachineDim(out, "RATE_CONTROL"),
-        fPhysTriggerEnabled(false), fTriggerOn(false),
-        has_this_FTU_been_mofified_this_time(40),
-        should_this_FTU_be_ommited_next_time(40),
         fDimFTM("FTM_CONTROL"),
         fDimRS("RATE_SCAN"),
-        fDimLid("LID_CONTROL"),
-        fDimDrive("DRIVE_CONTROL"),
         fDimThreshold("RATE_CONTROL/THRESHOLD", "S:1;D:1;D:1",
                       "Resulting threshold after calibration"
                       "|threshold[dac]:Resulting threshold from calibration"
                       "|begin[mjd]:Start time of calibration"
-                      "|end[mjd]:End time of calibration")
+                      "|end[mjd]:End time of calibration"),
+        fPhysTriggerEnabled(false),
+        fTriggerOn(false)
     {
         fDim.Subscribe(*this);
         fDimFTM.Subscribe(*this);
         fDimRS.Subscribe(*this);
-        fDimLid.Subscribe(*this);
-        fDimDrive.Subscribe(*this);
 
         Subscribe("FTM_CONTROL/TRIGGER_RATES")
             (bind(&StateMachineRateControl::HandleTriggerRates, this, placeholders::_1));
@@ -605,10 +238,6 @@ public:
         AddStateName(RateControl::State::kInProgress, "InProgress",
                      "Rate control in progress.");
 
-        AddEvent("CALIBRATE_BY_CURRENT")
-            (bind(&StateMachineRateControl::CalibrateByCurrent, this))
-            ("Set the global threshold from the median current");
-
         AddEvent("CALIBRATE_RUN", "C")
             (bind(&StateMachineRateControl::CalibrateRun, this, placeholders::_1))
             ("Start a threshold calibration as defined in the setup for this run-type, state change to InProgress is delayed until trigger enabled");
@@ -616,14 +245,6 @@ public:
         AddEvent("STOP", RateControl::State::kSettingGlobalThreshold, RateControl::State::kGlobalThresholdSet, RateControl::State::kInProgress)
             (bind(&StateMachineRateControl::StopRC, this))
             ("Stop a calibration or ratescan in progress");
-
-        AddEvent("SET_MIN_THRESHOLD", "I:1")
-            (bind(&StateMachineRateControl::SetMinThreshold, this, placeholders::_1))
-            ("Set a minimum threshold at which th rate control starts calibrating");
-
-        AddEvent("SET_TARGET_RATE", "F:1")
-            (bind(&StateMachineRateControl::SetTargetRate, this, placeholders::_1))
-            ("Set a target trigger rate for the calibration");
 
         AddEvent("PRINT")
             (bind(&StateMachineRateControl::Print, this))
@@ -657,13 +278,6 @@ public:
             Error("Reading mapping table from "+conf.Get<string>("pixel-map-file")+" failed.");
             return 1;
         }
-
-        fThresholdReference = 300;
-        fThresholdMin       = 300;
-        fTargetRate         =  75;
-
-        fAverageTime        =  10;
-        fRequiredEvents     =   8;
 
         // ---------- Setup run types ---------
         const vector<string> types = conf.Vec<string>("run-type");
