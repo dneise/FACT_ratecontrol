@@ -31,6 +31,24 @@ using namespace std;
 #include "DimDescriptionService.h"
 #include "DimState.h"
 
+void PrintThresholds(vector<uint16_t> thresholds) {
+    if (thresholds.empty() || thresholds.size() != 160)
+        return;
+
+    for (int j=0; j<10; j++) {
+        for (int k=0; k<4; k++) {
+            for (int i=0; i<4; i++) {
+                const int p = i + k*4 + j*16;
+                    Out() << setw(3) << thresholds[p] << " ";
+            }
+            Out() << "   ";
+        }
+        Out() << endl;
+    }
+    Out() << endl;
+}
+
+
 // The threshold T vs. current I dependency is modelled as:
 // T = factor * pow(I, power);
 // where:
