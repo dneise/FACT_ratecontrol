@@ -35,7 +35,7 @@ using namespace std;
 
 // ------------------------------------------------------------------------
 
-class StateMachineRateControl : public StateMachineDim//, public DimInfoHandler
+class StateMachineRateControl : public StateMachineDim
 {
 private:
     struct config
@@ -65,25 +65,10 @@ private:
 
     DimDescribedService fDimThreshold;
 
-    uint16_t fAverageTime;
-    uint16_t fRequiredEvents;
-
     bool fVerbose;
-
-    uint64_t fCounter;
-
-    Time fCalibrationTimeStart;
-
-    double self_patch_rate_median;
-    double self_patch_rate_std;
-
-    double self_board_rate_median;
-    double self_board_rate_std;
 
     vector<uint32_t> fLastThresholdsReadFromFTM;
     vector<uint32_t> fLastThresholdsSetByUs;
-
-
     vector<double> fBiasPatchCurrents;  // currents
 
     bool CheckEventSize(const EventImp &evt, size_t size)
@@ -139,9 +124,6 @@ private:
         vector<double> tmp(currents.I, currents.I + BIAS::kNumChannels);
         return move(tmp);
     }
-
-
-
 
     vector<uint32_t>
     CombineThresholds(const vector<uint32_t> bias_patch_thresholds){
@@ -326,9 +308,6 @@ public:
             Error("Reading mapping table from "+conf.Get<string>("pixel-map-file")+" failed.");
             return 1;
         }
-
-        fAverageTime        =  10;
-        fRequiredEvents     =   8;
 
         // ---------- Setup run types ---------
         const vector<string> types = conf.Vec<string>("run-type");
