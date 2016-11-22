@@ -95,7 +95,9 @@ private:
         const Feedback::CalibratedCurrentsData &calibrated_currents = (
             *static_cast<const Feedback::CalibratedCurrentsData*>(evt.GetData()) );
 
-        auto bias_currents = GetCalibratedCurrentsFromCalibratedCurrentsData(calibrated_currents);
+        vector<double> bias_currents(
+            calibrated_currents.I,
+            calibrated_currents.I + BIAS::kNumChannels);
         auto bias_patch_thresholds = CalcThresholdsFromCurrents(bias_currents);
         auto trigger_patch_thresholds = CombineThresholds(bias_patch_thresholds);
 
@@ -103,12 +105,6 @@ private:
             SetThresholds(trigger_patch_thresholds);
         }
         return GetCurrentState();
-    }
-
-    vector<double>
-    GetCalibratedCurrentsFromCalibratedCurrentsData(const Feedback::CalibratedCurrentsData& currents){
-        vector<double> tmp(currents.I, currents.I + BIAS::kNumChannels);
-        return move(tmp);
     }
 
     vector<uint32_t>
