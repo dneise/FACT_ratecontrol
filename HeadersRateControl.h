@@ -3,18 +3,21 @@
 
 namespace RateControl
 {
-    enum class State
-    {
-        kDimNetworkNA = 1,
-        kDisconnected,
-        kConnecting,              // obsolete, not used
-        kConnected,
+    namespace State{
+        enum state_t
+        {
+            kDimNetworkNA = 1,
+            kDisconnected,
+            kConnecting,              // obsolete, not used
+            kConnected,
 
-        kSettingGlobalThreshold,
-        kGlobalThresholdSet,
+            kSettingGlobalThreshold,
+            kGlobalThresholdSet,
 
-        kInProgress,
-    };
+            kInProgress,
+        };
+    }
+
 
     struct DimThreshold
     {
