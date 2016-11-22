@@ -3,20 +3,17 @@
 
 namespace RateControl
 {
-    namespace State
+    enum class State
     {
-        enum states_t
-        {
-            kDimNetworkNA = 1,
-            kDisconnected,
-            kConnecting,              // obsolete, not used
-            kConnected,
+        kDimNetworkNA = 1,
+        kDisconnected,
+        kConnecting,              // obsolete, not used
+        kConnected,
 
-            kSettingGlobalThreshold,
-            kGlobalThresholdSet,
+        kSettingGlobalThreshold,
+        kGlobalThresholdSet,
 
-            kInProgress,
-        };
+        kInProgress,
     };
 
     struct DimThreshold
@@ -28,7 +25,7 @@ namespace RateControl
 
 
     template<typename T>
-    double vector_mean(T v){
+    double vector_mean(const T& v){
         double sum = std::accumulate(v.begin(), v.end(), 0.0);
         double mean = sum / v.size();
 
@@ -36,7 +33,7 @@ namespace RateControl
     }
 
     template<typename T>
-    double vector_std(T v){
+    double vector_std(const T& v){
         double sum = std::accumulate(v.begin(), v.end(), 0.0);
         double mean = sum / v.size();
 
@@ -49,7 +46,7 @@ namespace RateControl
     }
 
     template<typename T>
-    double vector_median(T v){
+    double vector_median(const T& v){
         T copy_v(v);
         std::sort(copy_v.begin(), copy_v.end());
         const int N = copy_v.size()/2;
@@ -63,7 +60,7 @@ namespace RateControl
 
     // estimate the stddev from the cdf
     template<typename T>
-    double vector_std_from_cdf(T v){
+    double vector_std_from_cdf(const T& v){
         T copy_v(v);
         std::sort(copy_v.begin(), copy_v.end());
 
