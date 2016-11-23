@@ -60,6 +60,7 @@ private:
     bool fTriggerOn;
 
     deque< vector<double>> fHistoricCurrents;
+    vector<uint32_t> fLastThresholds;
 
     bool CheckEventSize(const EventImp &evt, size_t size)
     {
@@ -107,6 +108,7 @@ private:
 
         if (GetCurrentState() == RateControl::State::kInProgress){
             SetThresholds(trigger_patch_thresholds);
+            fLastThresholds = trigger_patch_thresholds;
         }
         return GetCurrentState();
     }
