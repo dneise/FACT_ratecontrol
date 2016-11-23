@@ -59,6 +59,8 @@ private:
     bool fPhysTriggerEnabled;
     bool fTriggerOn;
 
+    deque< vector<double>> fHistoricCurrents;
+
     bool CheckEventSize(const EventImp &evt, size_t size)
     {
         if (size_t(evt.GetSize())==size)
@@ -98,13 +100,38 @@ private:
         vector<double> bias_currents(
             calibrated_currents.I,
             calibrated_currents.I + BIAS::kNumChannels);
-        auto bias_patch_thresholds = CalcThresholdsFromCurrents(bias_currents);
+
+        auto median_bias_currents = CalcRunningMedianWith(bias_currents);
+        auto bias_patch_thresholds = CalcThresholdsFromCurrents(median_bias_currents);
         auto trigger_patch_thresholds = CombineThresholds(bias_patch_thresholds);
 
         if (GetCurrentState() == RateControl::State::kInProgress){
             SetThresholds(trigger_patch_thresholds);
         }
         return GetCurrentState();
+    }
+
+    vector<double>
+    CalcRunningMedianWith(const vector<double>& bias_currents){
+        const unsigned int history_length = 3;
+        // append bias_currents to history
+        fHistoricCurrents.push_back(bias_currents);
+        while (fHistoricCurrents.size() > history_length){
+            fHistoricCurrents.pop_front();
+        }
+
+        // calculate running median on history
+        vector<double> medians(BIAS::kNumChannels, 0.);
+
+        for (unsigned int b_id=0; b_id < BIAS::kNumChannels; b_id++){
+            vector<double> buffer;
+            for(auto it=fHistoricCurrents.begin(); it<fHistoricCurrents.end(); it++){
+                buffer.push_back(it->at(b_id));
+            }
+            medians[b_id] = RateControl::vector_median(buffer);
+        }
+
+        return move(medians);
     }
 
     vector<uint32_t>
