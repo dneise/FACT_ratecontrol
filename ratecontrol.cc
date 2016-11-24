@@ -32,6 +32,7 @@ using namespace std;
 #include "DimState.h"
 
 #include "threshold_from_currents.cpp"
+#include "numeric_stl.hpp"
 
 // ------------------------------------------------------------------------
 
@@ -131,7 +132,7 @@ private:
             for(auto it=fHistoricCurrents.begin(); it<fHistoricCurrents.end(); it++){
                 buffer.push_back(it->at(b_id));
             }
-            medians[b_id] = RateControl::vector_median(buffer);
+            medians[b_id] = NumericStl::median(buffer);
         }
 
         return move(medians);
