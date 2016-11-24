@@ -1,3 +1,6 @@
+#include <vector>
+#include <algorithm>
+#include "../externals/PixelMap.h"
 // The threshold T vs. current I dependency is modelled as:
 // T = factor * pow(I, power);
 // where:
@@ -335,13 +338,66 @@ threshold_vs_current_fit_parameter fits_parameters[320] = {
     { 162.221889097, 0.386318063272, -14.8499219131, 797.189423786}
 };
 
-vector<uint32_t>
-CalcThresholdsFromCurrents(const vector<double>& currents){
+std::vector<uint32_t>
+CalcThresholdsFromCurrents(const std::vector<double>& currents){
     // b : BiasPatch ID
-    vector<uint32_t> bias_patch_thresholds(320, 0);
+    std::vector<uint32_t> bias_patch_thresholds(320, 0);
     for(unsigned int b=0; b<bias_patch_thresholds.size(); b++){
         threshold_vs_current_fit_parameter fit = fits_parameters[b];
         bias_patch_thresholds[b] = uint32_t(fit.constant + fit.factor * pow(currents.at(b), fit.power));
     }
     return move(bias_patch_thresholds);
+}
+
+std::vector<uint32_t>
+ReplaceBrokenBiasPatches(const std::vector<uint32_t> thresholds_in_bias_patch_order){
+    auto v(thresholds_in_bias_patch_order);
+    v[38] = v[39]; // 38 is dead
+    v[66] = v[67]; // 66 is crazy
+    v[191] = v[190]; // 191 is crazy
+    v[193] = v[192]; // 193 is crazy
+    return move(v);
+}
+
+int BiasPatchIdsInTriggerPatchOrder(int dual_trigger_patch_id, const PixelMap& map){
+    return map.hw((dual_trigger_patch_id/2)*9 + (dual_trigger_patch_id%2)*5).hv();
+}
+
+std::vector<uint32_t>
+SortThresholdsIntoDualTriggerPatchOrder(
+            const std::vector<uint32_t>& bias_patch_thresholds,
+            const PixelMap& fMap
+    ){
+    // t : TriggerPatch ID
+    // b : BiasPatch ID
+    const int pixel_per_patch = 9;
+    std::vector<uint32_t> dual_trigger_patch_thresholds(320, 0);
+    for (unsigned int t=0; t<dual_trigger_patch_thresholds.size(); t++){
+        int b = BiasPatchIdsInTriggerPatchOrder(t, fMap);
+        dual_trigger_patch_thresholds[t] = bias_patch_thresholds[b];
+    }
+    return move(dual_trigger_patch_thresholds);
+}
+
+std::vector<uint32_t>
+CombineThresholds(const std::vector<uint32_t>& dual_trigger_patch_thresholds){
+    std::vector<uint32_t> trigger_patch_thresholds(160, 0);
+    for(unsigned int t=0; t < trigger_patch_thresholds.size(); t++){
+        uint32_t b_4 = dual_trigger_patch_thresholds[t*2];
+        uint32_t b_5 = dual_trigger_patch_thresholds[t*2 + 1];
+        trigger_patch_thresholds[t] = std::max(b_4, b_5);
+    }
+    // exceptions for broken patches:
+    // ---------------------------------------------------------------
+    // We have 4 bias patches, which are broken, i.e. the current vs threshold
+    // dependency was not fittable.
+    // Luckily the neighboring bias patch works and can be used for setting
+    // the threshold. In case there is a star in the broken patch, this patch
+    // will fire like crazy since the threshold is derived from the neighboring
+    // patch, which has a much lower current.
+    trigger_patch_thresholds[19] = dual_trigger_patch_thresholds[39];  // 38 is dead
+    trigger_patch_thresholds[33] = dual_trigger_patch_thresholds[67];  // 66 is crazy
+    trigger_patch_thresholds[95] = dual_trigger_patch_thresholds[190];  // 191 is crazy
+    trigger_patch_thresholds[96] = dual_trigger_patch_thresholds[192];  // 193 is crazy
+    return move(trigger_patch_thresholds);
 }
