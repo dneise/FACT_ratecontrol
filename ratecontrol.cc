@@ -102,13 +102,14 @@ private:
             calibrated_currents.I,
             calibrated_currents.I + BIAS::kNumChannels);
 
-        auto median_bias_currents = CalcRunningMedianWith(bias_currents);
-        auto bias_patch_thresholds = CalcThresholdsFromCurrents(median_bias_currents);
-        auto trigger_patch_thresholds = CombineThresholds(bias_patch_thresholds);
+        auto thresholds = CalcThresholdsFromCurrents(bias_currents);
+        auto replaced = ReplaceBrokenBiasPatches(thresholds);
+        auto sorted_v = SortThresholdsIntoDualTriggerPatchOrder(replaced, fMap);
+        auto combined = CombineThresholds(sorted_v);
 
         if (GetCurrentState() == RateControl::State::kInProgress){
-            SetThresholds(trigger_patch_thresholds);
-            fLastThresholds = trigger_patch_thresholds;
+            SetThresholds(combined);
+            fLastThresholds = combined;
         }
         return GetCurrentState();
     }
@@ -136,33 +137,6 @@ private:
         return move(medians);
     }
 
-    vector<uint32_t>
-    CombineThresholds(const vector<uint32_t>& bias_patch_thresholds){
-        // t : TriggerPatch ID
-        // b_4 : BiasPatch ID of associated bias patch with 4 pixel
-        // b_5 : BiasPatch ID of associated bias patch with 5 pixel
-        const int pixel_per_patch = 9;
-        vector<uint32_t> trigger_patch_thresholds(160, 0);
-        for(unsigned int t=0; t < trigger_patch_thresholds.size(); t++){
-            const int b_4 = fMap.hw(t*pixel_per_patch).hv();
-            const int b_5 = fMap.hw(t*pixel_per_patch + pixel_per_patch/2).hv();
-            trigger_patch_thresholds[t] = max(b_4, b_5);
-        }
-        // exceptions for broken patches:
-        // ---------------------------------------------------------------
-        // We have 4 bias patches, which are broken, i.e. the current vs threshold
-        // dependency was not fittable.
-        // Luckily the neighboring bias patch works and can be used for setting
-        // the threshold. In case there is a star in the broken patch, this patch
-        // will fire like crazy since the threshold is derived from the neighboring
-        // patch, which has a much lower current.
-        trigger_patch_thresholds[19] = bias_patch_thresholds[39];  // 38 is dead
-        trigger_patch_thresholds[33] = bias_patch_thresholds[67];  // 66 is crazy
-        trigger_patch_thresholds[95] = bias_patch_thresholds[190];  // 191 is crazy
-        trigger_patch_thresholds[96] = bias_patch_thresholds[192];  // 193 is crazy
-        return move(trigger_patch_thresholds);
-    }
-
     void SetThresholds(vector<uint32_t>& thresholds){
         if (fTriggerOn){
             Dim::SendCommandNB("FTM_CONTROL/SET_SELECTED_THRESHOLDS", thresholds);
@@ -170,7 +144,6 @@ private:
             Dim::SendCommandNB("FTM_CONTROL/SET_ALL_THRESHOLDS", thresholds);
         }
     }
-
 
     int CalibrateRun(const EventImp &evt)
     {
