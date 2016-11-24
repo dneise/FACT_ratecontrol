@@ -370,7 +370,6 @@ SortThresholdsIntoDualTriggerPatchOrder(
     ){
     // t : TriggerPatch ID
     // b : BiasPatch ID
-    const int pixel_per_patch = 9;
     std::vector<uint32_t> dual_trigger_patch_thresholds(320, 0);
     for (unsigned int t=0; t<dual_trigger_patch_thresholds.size(); t++){
         int b = BiasPatchIdsInTriggerPatchOrder(t, fMap);
