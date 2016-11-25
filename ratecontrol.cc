@@ -139,11 +139,8 @@ private:
     }
 
     void SetThresholds(vector<uint32_t>& thresholds){
-        if (fTriggerOn){
             Dim::SendCommandNB("FTM_CONTROL/SET_SELECTED_THRESHOLDS", thresholds);
-        } else {
             Dim::SendCommandNB("FTM_CONTROL/SET_ALL_THRESHOLDS", thresholds);
-        }
     }
 
     int CalibrateRun(const EventImp &evt)
