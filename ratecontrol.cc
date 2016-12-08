@@ -109,14 +109,36 @@ private:
         auto thresholds = CalcThresholdsFromCurrents(bias_currents);
         auto replaced = ReplaceBrokenBiasPatches(thresholds);
         auto sorted_v = SortThresholdsIntoDualTriggerPatchOrder(replaced, fMap);
-        auto combined = CombineThresholds(sorted_v);
+        auto proposed_thresholds = CombineThresholds(sorted_v);
+
+        auto new_thresholds = SelectSignificantChanges(proposed_thresholds);
 
         if (GetCurrentState() == RateControl::State::kInProgress){
-            SetThresholds(combined);
-            fLastThresholds = combined;
+            SetThresholds(new_thresholds);
+            fLastThresholds = new_thresholds;
         }
         return GetCurrentState();
     }
+
+    vector<bool> SelectSignificantChanges(const vector<uint32_t>& proposed_thresholds)
+    {
+        const uint32_t significance_limit = 5;
+        vector<uint32_t> new_thresholds(160, 0);
+
+        for(int i=0; i < fLastThresholds.size(); i++){
+            int32_t diff = int32_t(proposed_thresholds[i]) - fLastThresholds[i];
+
+            if (abs(diff) >= significance_limit){
+                new_thresholds[i] = proposed_thresholds[i];
+            }
+            else{
+                new_thresholds[i] = fLastThresholds[i];
+            }
+        }
+
+        return move(new_thresholds);
+    }
+
 
     void AppendToHistoricCurrents(const vector<double>& bias_currents){
         const unsigned int history_length = 3;
@@ -202,7 +224,8 @@ public:
                       "|begin[mjd]:Start time of calibration"
                       "|end[mjd]:End time of calibration"),
         fPhysTriggerEnabled(false),
-        fTriggerOn(false)
+        fTriggerOn(false),
+        fLastThresholds(160, 0)
     {
         fDim.Subscribe(*this);
         fDimFTM.Subscribe(*this);
