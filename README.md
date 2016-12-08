@@ -33,10 +33,15 @@ c.f. [CombineThresholds() 2nd part.](https://github.com/dneise/FACT_ratecontrol/
 
 # Changes with respect to the original ratecontrol.cc
 
-There are many, basically this is a new program, 
-however in order not to confuse the rest of the FACT++ system its interface 
-to the outside world has been kept identical (at least this was the plan of the author).
+There are many, basically this is a new program. 
+However in order to retain its orignal interface 
+care has been taken to behave as similar as possible to the original `ratecontrol.cc`.
 
 ## No Global Threshold Setting
 
-The original ratescan.cc would also use the currents to find the apropriate theshold, but it would use the median current to find a global threshold for all patches as a kind of "starting point". Patches whose rate is much higher than the median patch rate would than get an increased threshold so they are pushed back towards the mean, patches showing a much lower rate than the median would get a decreased threshold. 
+The original ratescan.cc would also use the currents to find the apropriate theshold
+(just like this new alternate version does),
+but it would use the median current to find a global threshold for all patches as a kind of "starting point". 
+This step was called "Setting Global Threshold" and does not exist anymore in the new version.
+
+## No 
