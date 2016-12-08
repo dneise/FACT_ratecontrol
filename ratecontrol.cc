@@ -103,6 +103,9 @@ private:
             calibrated_currents.I,
             calibrated_currents.I + BIAS::kNumChannels);
 
+        AppendToHistoricCurrents(bias_currents);
+        bias_currents = GetMedianOfHistoricCurrents();
+
         auto thresholds = CalcThresholdsFromCurrents(bias_currents);
         auto replaced = ReplaceBrokenBiasPatches(thresholds);
         auto sorted_v = SortThresholdsIntoDualTriggerPatchOrder(replaced, fMap);
@@ -115,18 +118,16 @@ private:
         return GetCurrentState();
     }
 
-    vector<double>
-    CalcRunningMedianWith(const vector<double>& bias_currents){
+    void AppendToHistoricCurrents(const vector<double>& bias_currents){
         const unsigned int history_length = 3;
-        // append bias_currents to history
         fHistoricCurrents.push_back(bias_currents);
         while (fHistoricCurrents.size() > history_length){
             fHistoricCurrents.pop_front();
         }
+    }
 
-        // calculate running median on history
+    vector<double> GetMedianOfHistoricCurrents(void){
         vector<double> medians(BIAS::kNumChannels, 0.);
-
         for (unsigned int b_id=0; b_id < BIAS::kNumChannels; b_id++){
             vector<double> buffer;
             for(auto it=fHistoricCurrents.begin(); it<fHistoricCurrents.end(); it++){
@@ -134,7 +135,6 @@ private:
             }
             medians[b_id] = NumericStl::median(buffer);
         }
-
         return move(medians);
     }
 
