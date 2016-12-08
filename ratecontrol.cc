@@ -120,7 +120,7 @@ private:
         return GetCurrentState();
     }
 
-    vector<bool> SelectSignificantChanges(const vector<uint32_t>& proposed_thresholds)
+    vector<uint32_t> SelectSignificantChanges(const vector<uint32_t>& proposed_thresholds)
     {
         const uint32_t significance_limit = 5;
         vector<uint32_t> new_thresholds(160, 0);
