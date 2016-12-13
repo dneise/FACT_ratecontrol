@@ -115,7 +115,6 @@ private:
         bias_currents = GetMedianOfHistoricCurrents();
 
         auto thresholds = CalcThresholdsFromCurrents(bias_currents);
-        PrintArray(thresholds);
         auto replaced = ReplaceBrokenBiasPatches(thresholds);
         auto sorted_v = SortThresholdsIntoDualTriggerPatchOrder(replaced, fMap);
         auto proposed_thresholds = CombineThresholds(sorted_v);
