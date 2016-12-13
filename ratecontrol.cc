@@ -135,7 +135,7 @@ private:
     thresholds_t SelectSignificantChanges(const thresholds_t& proposed_thresholds)
     {
         const uint32_t significance_limit = 5;
-        thresholds_t new_thresholds;
+        thresholds_t new_thresholds{};
 
         for(int i=0; i < fLastThresholds.size(); i++){
             int32_t diff = int32_t(proposed_thresholds[i]) - fLastThresholds[i];
@@ -173,7 +173,7 @@ private:
     }
 
     currents_t GetMedianOfHistoricCurrents(void){
-        currents_t medians;
+        currents_t medians{};
         for (unsigned int b_id=0; b_id < medians.size(); b_id++){
             vector<double> buffer;
             for(auto it=fHistoricCurrents.begin(); it<fHistoricCurrents.end(); it++){
@@ -273,6 +273,7 @@ public:
                       "|end[mjd]:End time of calibration"),
         fPhysTriggerEnabled(false),
         fTriggerOn(false),
+        fLastThresholds(){},
         fTimeOfLastCalibratedCurrents()
     {
         fDim.Subscribe(*this);

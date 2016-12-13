@@ -341,7 +341,7 @@ threshold_vs_current_fit_parameter fits_parameters[320] = {
 thresholds_for_bias_patches_t
 CalcThresholdsFromCurrents(const currents_t& currents){
     // b : BiasPatch ID
-    thresholds_for_bias_patches_t bias_patch_thresholds;
+    thresholds_for_bias_patches_t bias_patch_thresholds{};
     for(unsigned int b=0; b<bias_patch_thresholds.size(); b++){
         threshold_vs_current_fit_parameter fit = fits_parameters[b];
         bias_patch_thresholds[b] = uint32_t(fit.constant + fit.factor * pow(currents.at(b), fit.power));
@@ -371,7 +371,7 @@ SortThresholdsIntoDualTriggerPatchOrder(
     ){
     // t : TriggerPatch ID
     // b : BiasPatch ID
-    thresholds_for_bias_patches_t dual_trigger_patch_thresholds;
+    thresholds_for_bias_patches_t dual_trigger_patch_thresholds{};
     for (unsigned int t=0; t<dual_trigger_patch_thresholds.size(); t++){
         int b = BiasPatchIdsInTriggerPatchOrder(t, fMap);
         dual_trigger_patch_thresholds[t] = bias_patch_thresholds[b];
@@ -381,7 +381,7 @@ SortThresholdsIntoDualTriggerPatchOrder(
 
 thresholds_t
 CombineThresholds(const thresholds_for_bias_patches_t& dual_trigger_patch_thresholds){
-    thresholds_t trigger_patch_thresholds;
+    thresholds_t trigger_patch_thresholds{};
     for(unsigned int t=0; t < trigger_patch_thresholds.size(); t++){
         uint32_t b_4 = dual_trigger_patch_thresholds[t*2];
         uint32_t b_5 = dual_trigger_patch_thresholds[t*2 + 1];
