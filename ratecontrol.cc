@@ -184,11 +184,31 @@ private:
         return RateControl::State::kConnected;
     }
 
+    void PrintThresholds(const vector<uint32_t>& thr)
+    {
+        if (thr.size() != 160){
+            Out() << "PrintThresholds: size() != 160, but is:" << thr.size() << endl;
+        }
+        for (int j=0; j<10; j++) {
+            for (int k=0; k<4; k++) {
+                for (int i=0; i<4; i++) {
+                    const int p = i + k*4 + j*16;
+                    Out() << setw(3) << thr[p] << " ";
+                }
+                Out() << "   ";
+            }
+            Out() << endl;
+        }
+        Out() << endl;
+    }
+
+
     int Print() const
     {
         Out() << fDim << endl;
         Out() << fDimFTM << endl;
         Out() << fDimRS << endl;
+        PrintThresholds(fLastThresholds);
         return GetCurrentState();
     }
 
