@@ -109,7 +109,7 @@ private:
 
         vector<double> bias_currents(
             calibrated_currents.I,
-            calibrated_currents.I + BIAS::kNumChannels);
+            calibrated_currents.I + 320);
 
         AppendToHistoricCurrents(bias_currents);
         bias_currents = GetMedianOfHistoricCurrents();
