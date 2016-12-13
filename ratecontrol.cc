@@ -114,6 +114,7 @@ private:
         AppendToHistoricCurrents(bias_currents);
         bias_currents = GetMedianOfHistoricCurrents();
 
+        PrintArray(bias_currents);
         auto thresholds = CalcThresholdsFromCurrents(bias_currents);
         auto replaced = ReplaceBrokenBiasPatches(thresholds);
         auto sorted_v = SortThresholdsIntoDualTriggerPatchOrder(replaced, fMap);
@@ -159,6 +160,18 @@ private:
             }
         }
     }
+
+    void PrintArray(const vector<uint32_t>& a){
+        for (int i=0; i<a.size(); i++){
+            Out() << setw(3) << i << ": " << a[i] << endl;
+        }
+    }
+    void PrintArray(const vector<double>& a){
+        for (int i=0; i<a.size(); i++){
+            Out() << setw(3) << i << ": " << a[i] << endl;
+        }
+    }
+
 
 
     void AppendToHistoricCurrents(const vector<double>& bias_currents){
