@@ -63,6 +63,8 @@ private:
     deque< vector<double>> fHistoricCurrents;
     vector<uint32_t> fLastThresholds;
 
+    Time fTimeOfLastCalibratedCurrents;
+
     bool CheckEventSize(const EventImp &evt, size_t size)
     {
         if (size_t(evt.GetSize())==size)
@@ -94,7 +96,10 @@ private:
     }
 
     int HandleCalibratedCurrents(const EventImp &evt) {
+        long ms_since_last = (evt.GetTime() - fTimeOfLastCalibratedCurrents).total_milliseconds();
         Out() << "HandleCalibratedCurrents:" << evt.GetTime().Iso() << endl;
+        Out() << "ms_since_last:" << ms_since_last << endl;
+
         if (!CheckEventSize(evt, sizeof(Feedback::CalibratedCurrentsData))) return GetCurrentState();
 
         const Feedback::CalibratedCurrentsData &calibrated_currents = (
@@ -253,7 +258,8 @@ public:
                       "|end[mjd]:End time of calibration"),
         fPhysTriggerEnabled(false),
         fTriggerOn(false),
-        fLastThresholds(160, 0)
+        fLastThresholds(160, 0),
+        fTimeOfLastCalibratedCurrents()
     {
         fDim.Subscribe(*this);
         fDimFTM.Subscribe(*this);
