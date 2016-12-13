@@ -356,6 +356,7 @@ ReplaceBrokenBiasPatches(const std::vector<uint32_t> thresholds_in_bias_patch_or
     v[66] = v[67]; // 66 is crazy
     v[191] = v[190]; // 191 is crazy
     v[193] = v[192]; // 193 is crazy
+    v[272] = v[273]; // 193 is crazy
     return move(v);
 }
 
@@ -398,5 +399,7 @@ CombineThresholds(const std::vector<uint32_t>& dual_trigger_patch_thresholds){
     trigger_patch_thresholds[33] = dual_trigger_patch_thresholds[67];  // 66 is crazy
     trigger_patch_thresholds[95] = dual_trigger_patch_thresholds[190];  // 191 is crazy
     trigger_patch_thresholds[96] = dual_trigger_patch_thresholds[192];  // 193 is crazy
+    trigger_patch_thresholds[144] = dual_trigger_patch_thresholds[273];  // 272 is sometimes dead
+
     return move(trigger_patch_thresholds);
 }
