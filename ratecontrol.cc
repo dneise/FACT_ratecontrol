@@ -97,6 +97,9 @@ private:
 
     int HandleCalibratedCurrents(const EventImp &evt) {
         long ms_since_last = (evt.GetTime() - fTimeOfLastCalibratedCurrents).total_milliseconds();
+        if (ms_since_last < 1000){
+            return GetCurrentState();
+        }
         fTimeOfLastCalibratedCurrents = evt.GetTime();
         Out() << "HandleCalibratedCurrents:" << evt.GetTime().Iso() << endl;
         Out() << "ms_since_last:" << ms_since_last << endl;
