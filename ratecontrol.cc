@@ -101,9 +101,6 @@ private:
             return GetCurrentState();
         }
         fTimeOfLastCalibratedCurrents = evt.GetTime();
-        Out() << "HandleCalibratedCurrents:" << evt.GetTime().Iso() << endl;
-        Out() << "ms_since_last:" << ms_since_last << endl;
-
 
         if (!CheckEventSize(evt, sizeof(Feedback::CalibratedCurrentsData))) return GetCurrentState();
 
@@ -123,7 +120,7 @@ private:
         auto proposed_thresholds = CombineThresholds(sorted_v);
 
         auto new_thresholds = SelectSignificantChanges(proposed_thresholds);
-
+        PrintThresholdsOutOfRange(proposed_thresholds);
         if (GetCurrentState() == RateControl::State::kInProgress){
             SetThresholds(new_thresholds);
             fLastThresholds = new_thresholds;
@@ -148,6 +145,19 @@ private:
         }
 
         return move(new_thresholds);
+    }
+
+    void PrintThresholdsOutOfRange(const vector<uint32_t>& proposed_thresholds)
+    {
+        for(int i=0; i < proposed_thresholds.size(); i++){
+            if (
+                (proposed_thresholds[i] < 0)
+                || (proposed_thresholds[i] > 0xffff)
+            )
+            {
+                Out() << "proposed_thresholds["<<i<<"]=" << proposed_thresholds[i] << endl;
+            }
+        }
     }
 
 
