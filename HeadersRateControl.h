@@ -25,6 +25,11 @@ namespace RateControl
         double   begin;
         double   end;
     }  __attribute__((__packed__));
+
+    enum
+    {
+        kNumBiasChannels = 320
+    };
 }
 
 #endif
