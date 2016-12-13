@@ -273,7 +273,7 @@ public:
                       "|end[mjd]:End time of calibration"),
         fPhysTriggerEnabled(false),
         fTriggerOn(false),
-        fLastThresholds(){},
+        fLastThresholds(),
         fTimeOfLastCalibratedCurrents()
     {
         fDim.Subscribe(*this);
