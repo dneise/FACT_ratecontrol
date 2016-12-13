@@ -338,10 +338,10 @@ threshold_vs_current_fit_parameter fits_parameters[320] = {
     { 162.221889097, 0.386318063272, -14.8499219131, 797.189423786}
 };
 
-std::vector<uint32_t>
-CalcThresholdsFromCurrents(const std::vector<double>& currents){
+thresholds_for_bias_patches_t
+CalcThresholdsFromCurrents(const currents_t& currents){
     // b : BiasPatch ID
-    std::vector<uint32_t> bias_patch_thresholds(320, 0);
+    thresholds_for_bias_patches_t bias_patch_thresholds;
     for(unsigned int b=0; b<bias_patch_thresholds.size(); b++){
         threshold_vs_current_fit_parameter fit = fits_parameters[b];
         bias_patch_thresholds[b] = uint32_t(fit.constant + fit.factor * pow(currents.at(b), fit.power));
@@ -349,8 +349,8 @@ CalcThresholdsFromCurrents(const std::vector<double>& currents){
     return move(bias_patch_thresholds);
 }
 
-std::vector<uint32_t>
-ReplaceBrokenBiasPatches(const std::vector<uint32_t> thresholds_in_bias_patch_order){
+thresholds_for_bias_patches_t
+ReplaceBrokenBiasPatches(const thresholds_for_bias_patches_t& thresholds_in_bias_patch_order){
     auto v(thresholds_in_bias_patch_order);
     v[38] = v[39]; // 38 is dead
     v[66] = v[67]; // 66 is crazy
@@ -364,14 +364,14 @@ int BiasPatchIdsInTriggerPatchOrder(int dual_trigger_patch_id, const PixelMap& m
     return map.hw((dual_trigger_patch_id/2)*9 + (dual_trigger_patch_id%2)*5).hv();
 }
 
-std::vector<uint32_t>
+thresholds_for_bias_patches_t
 SortThresholdsIntoDualTriggerPatchOrder(
-            const std::vector<uint32_t>& bias_patch_thresholds,
+            const thresholds_for_bias_patches_t& bias_patch_thresholds,
             const PixelMap& fMap
     ){
     // t : TriggerPatch ID
     // b : BiasPatch ID
-    std::vector<uint32_t> dual_trigger_patch_thresholds(320, 0);
+    thresholds_for_bias_patches_t dual_trigger_patch_thresholds;
     for (unsigned int t=0; t<dual_trigger_patch_thresholds.size(); t++){
         int b = BiasPatchIdsInTriggerPatchOrder(t, fMap);
         dual_trigger_patch_thresholds[t] = bias_patch_thresholds[b];
@@ -379,9 +379,9 @@ SortThresholdsIntoDualTriggerPatchOrder(
     return move(dual_trigger_patch_thresholds);
 }
 
-std::vector<uint32_t>
-CombineThresholds(const std::vector<uint32_t>& dual_trigger_patch_thresholds){
-    std::vector<uint32_t> trigger_patch_thresholds(160, 0);
+thresholds_t
+CombineThresholds(const thresholds_for_bias_patches_t& dual_trigger_patch_thresholds){
+    thresholds_t trigger_patch_thresholds;
     for(unsigned int t=0; t < trigger_patch_thresholds.size(); t++){
         uint32_t b_4 = dual_trigger_patch_thresholds[t*2];
         uint32_t b_5 = dual_trigger_patch_thresholds[t*2 + 1];

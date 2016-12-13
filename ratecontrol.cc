@@ -1,4 +1,5 @@
 #include <valarray>
+#include <array>
 
 #include "Dim.h"
 #include "Event.h"
@@ -60,8 +61,8 @@ private:
     bool fPhysTriggerEnabled;
     bool fTriggerOn;
 
-    deque< vector<double>> fHistoricCurrents;
-    vector<uint32_t> fLastThresholds;
+    deque<currents_t> fHistoricCurrents;
+    thresholds_t fLastThresholds;
 
     Time fTimeOfLastCalibratedCurrents;
 
@@ -107,9 +108,11 @@ private:
         const Feedback::CalibratedCurrentsData &calibrated_currents = (
             *static_cast<const Feedback::CalibratedCurrentsData*>(evt.GetData()) );
 
-        vector<double> bias_currents(
-            calibrated_currents.I,
-            calibrated_currents.I + RateControl::kNumBiasChannels);
+        currents_t bias_currents;
+        std::copy_n(calibrated_currents.I,
+                  RateControl::kNumBiasChannels,
+                  bias_currents.begin());
+
 
         AppendToHistoricCurrents(bias_currents);
         bias_currents = GetMedianOfHistoricCurrents();
@@ -129,10 +132,10 @@ private:
         return GetCurrentState();
     }
 
-    vector<uint32_t> SelectSignificantChanges(const vector<uint32_t>& proposed_thresholds)
+    thresholds_t SelectSignificantChanges(const thresholds_t& proposed_thresholds)
     {
         const uint32_t significance_limit = 5;
-        vector<uint32_t> new_thresholds(160, 0);
+        thresholds_t new_thresholds;
 
         for(int i=0; i < fLastThresholds.size(); i++){
             int32_t diff = int32_t(proposed_thresholds[i]) - fLastThresholds[i];
@@ -148,7 +151,7 @@ private:
         return move(new_thresholds);
     }
 
-    void PrintThresholdsOutOfRange(const vector<uint32_t>& proposed_thresholds)
+    void PrintThresholdsOutOfRange(const thresholds_t& proposed_thresholds)
     {
         for(int i=0; i < proposed_thresholds.size(); i++){
             if (
@@ -161,20 +164,7 @@ private:
         }
     }
 
-    void PrintArray(const vector<uint32_t>& a){
-        for (int i=0; i<a.size(); i++){
-            Out() << setw(3) << i << ": " << a[i] << endl;
-        }
-    }
-    void PrintArray(const vector<double>& a){
-        for (int i=0; i<a.size(); i++){
-            Out() << setw(3) << i << ": " << a[i] << endl;
-        }
-    }
-
-
-
-    void AppendToHistoricCurrents(const vector<double>& bias_currents){
+    void AppendToHistoricCurrents(const currents_t& bias_currents){
         const unsigned int history_length = 3;
         fHistoricCurrents.push_back(bias_currents);
         while (fHistoricCurrents.size() > history_length){
@@ -182,9 +172,9 @@ private:
         }
     }
 
-    vector<double> GetMedianOfHistoricCurrents(void){
-        vector<double> medians(RateControl::kNumBiasChannels, 0.);
-        for (unsigned int b_id=0; b_id < RateControl::kNumBiasChannels; b_id++){
+    currents_t GetMedianOfHistoricCurrents(void){
+        currents_t medians;
+        for (unsigned int b_id=0; b_id < medians.size(); b_id++){
             vector<double> buffer;
             for(auto it=fHistoricCurrents.begin(); it<fHistoricCurrents.end(); it++){
                 buffer.push_back(it->at(b_id));
@@ -194,7 +184,7 @@ private:
         return move(medians);
     }
 
-    void SetThresholds(vector<uint32_t>& thresholds){
+    void SetThresholds(thresholds_t& thresholds){
         Out() << "SetThresholds: current FTM state" << fDimFTM.state();
         Out() << "==? FTM::State::kTriggerOn:" << bool(fDimFTM.state() == FTM::State::kTriggerOn) << endl;
         if (fDimFTM.state() == FTM::State::kTriggerOn){
@@ -220,9 +210,6 @@ private:
 
     void PrintThresholds() const
     {
-        if (fLastThresholds.size() != 160){
-            Out() << "PrintThresholds: size() != 160, but is:" << fLastThresholds.size() << endl;
-        }
         for (int j=0; j<10; j++) {
             for (int k=0; k<4; k++) {
                 for (int i=0; i<4; i++) {
@@ -286,7 +273,6 @@ public:
                       "|end[mjd]:End time of calibration"),
         fPhysTriggerEnabled(false),
         fTriggerOn(false),
-        fLastThresholds(160, 0),
         fTimeOfLastCalibratedCurrents()
     {
         fDim.Subscribe(*this);

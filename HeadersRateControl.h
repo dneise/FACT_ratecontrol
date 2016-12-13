@@ -32,4 +32,9 @@ namespace RateControl
     };
 }
 
+
+typedef array<uint32_t, 160> thresholds_t;
+typedef array<uint32_t, RateControl::kNumBiasChannels> thresholds_for_bias_patches_t;
+typedef array<double, RateControl::kNumBiasChannels> currents_t;
+
 #endif
