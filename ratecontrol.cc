@@ -187,7 +187,7 @@ private:
     void PrintThresholds()
     {
         if (fLastThresholds.size() != 160){
-            Out() << "PrintThresholds: size() != 160, but is:" << thr.size() << endl;
+            Out() << "PrintThresholds: size() != 160, but is:" << fLastThresholds.size() << endl;
         }
         for (int j=0; j<10; j++) {
             for (int k=0; k<4; k++) {
