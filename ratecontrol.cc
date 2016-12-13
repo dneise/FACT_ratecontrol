@@ -109,7 +109,7 @@ private:
 
         vector<double> bias_currents(
             calibrated_currents.I,
-            calibrated_currents.I + 320);
+            calibrated_currents.I + RateControl::kNumBiasChannels);
 
         AppendToHistoricCurrents(bias_currents);
         bias_currents = GetMedianOfHistoricCurrents();
@@ -184,8 +184,8 @@ private:
     }
 
     vector<double> GetMedianOfHistoricCurrents(void){
-        vector<double> medians(BIAS::kNumChannels, 0.);
-        for (unsigned int b_id=0; b_id < BIAS::kNumChannels; b_id++){
+        vector<double> medians(RateControl::kNumBiasChannels, 0.);
+        for (unsigned int b_id=0; b_id < RateControl::kNumBiasChannels; b_id++){
             vector<double> buffer;
             for(auto it=fHistoricCurrents.begin(); it<fHistoricCurrents.end(); it++){
                 buffer.push_back(it->at(b_id));
