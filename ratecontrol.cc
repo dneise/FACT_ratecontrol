@@ -184,7 +184,7 @@ private:
         return RateControl::State::kConnected;
     }
 
-    void PrintThresholds()
+    void PrintThresholds() const
     {
         if (fLastThresholds.size() != 160){
             Out() << "PrintThresholds: size() != 160, but is:" << fLastThresholds.size() << endl;
