@@ -94,6 +94,7 @@ private:
     }
 
     int HandleCalibratedCurrents(const EventImp &evt) {
+        Out() << "HandleCalibratedCurrents:" << evt.GetTime().Iso() << endl;
         if (!CheckEventSize(evt, sizeof(Feedback::CalibratedCurrentsData))) return GetCurrentState();
 
         const Feedback::CalibratedCurrentsData &calibrated_currents = (
