@@ -161,8 +161,15 @@ private:
     }
 
     void SetThresholds(vector<uint32_t>& thresholds){
+        Out() << "SetThresholds: current FTM state" << fDimFTM.state();
+        Out() << "==? FTM::State::kTriggerOn:" << bool(fDimFTM.state() == FTM::State::kTriggerOn) << endl;
+        if (fDimFTM.state() == FTM::State::kTriggerOn){
+
             Dim::SendCommandNB("FTM_CONTROL/SET_SELECTED_THRESHOLDS", thresholds);
+        }
+        else{
             Dim::SendCommandNB("FTM_CONTROL/SET_ALL_THRESHOLDS", thresholds);
+        }
     }
 
     int CalibrateRun(const EventImp &evt)
