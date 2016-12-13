@@ -121,6 +121,7 @@ private:
         auto proposed_thresholds = CombineThresholds(sorted_v);
 
         auto new_thresholds = SelectSignificantChanges(proposed_thresholds);
+        Out() << "bias_currents.size()" << bias_currents.size() << endl;
         PrintThresholdsOutOfRange(proposed_thresholds);
         if (GetCurrentState() == RateControl::State::kInProgress){
             SetThresholds(new_thresholds);
