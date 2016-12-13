@@ -97,8 +97,10 @@ private:
 
     int HandleCalibratedCurrents(const EventImp &evt) {
         long ms_since_last = (evt.GetTime() - fTimeOfLastCalibratedCurrents).total_milliseconds();
+        fTimeOfLastCalibratedCurrents = evt.GetTime();
         Out() << "HandleCalibratedCurrents:" << evt.GetTime().Iso() << endl;
         Out() << "ms_since_last:" << ms_since_last << endl;
+
 
         if (!CheckEventSize(evt, sizeof(Feedback::CalibratedCurrentsData))) return GetCurrentState();
 
