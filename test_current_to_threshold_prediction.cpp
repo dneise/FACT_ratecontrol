@@ -13,7 +13,7 @@ TEST_CASE( "CalcThresholdsFromCurrents", "[CalcThresholdsFromCurrents]" ) {
     PixelMap map;
     map.Read("FACTmap111030.txt");
 
-    std::vector<uint32_t> thresholds_from_python = {
+    thresholds_t thresholds_from_python = {
        291, 291, 296, 291, 326, 304, 321, 274, 288, 291, 287, 296, 380,
        295, 304, 288, 296, 291, 305, 308, 290, 289, 292, 286, 282, 294,
        306, 310, 299, 295, 301, 304, 285, 300, 288, 299, 299, 282, 290,
@@ -27,7 +27,7 @@ TEST_CASE( "CalcThresholdsFromCurrents", "[CalcThresholdsFromCurrents]" ) {
        305, 347, 291, 291, 296, 291, 297, 288, 303, 288, 294, 278, 291,
        378, 285, 281, 301, 288, 287, 290, 286, 297, 293, 303, 298, 299,
        290, 294, 294, 291};
-    std::vector<double> bias_currents = {
+    currents_t bias_currents = {
          4.1023455,
          4.9428253,
          4.4305654,
