@@ -1,5 +1,6 @@
 #include <vector>
 #include <algorithm>
+#include "HeadersRateControl.h"
 #include "../externals/PixelMap.h"
 // The threshold T vs. current I dependency is modelled as:
 // T = factor * pow(I, power);
@@ -356,7 +357,7 @@ ReplaceBrokenBiasPatches(const thresholds_for_bias_patches_t& thresholds_in_bias
     v[66] = v[67]; // 66 is crazy
     v[191] = v[190]; // 191 is crazy
     v[193] = v[192]; // 193 is crazy
-    v[272] = v[273]; // 193 is crazy
+    v[272] = v[273]; // 272 is sometimes dead, we treat it as dead.
     return move(v);
 }
 
@@ -387,19 +388,5 @@ CombineThresholds(const thresholds_for_bias_patches_t& dual_trigger_patch_thresh
         uint32_t b_5 = dual_trigger_patch_thresholds[t*2 + 1];
         trigger_patch_thresholds[t] = std::max(b_4, b_5);
     }
-    // exceptions for broken patches:
-    // ---------------------------------------------------------------
-    // We have 4 bias patches, which are broken, i.e. the current vs threshold
-    // dependency was not fittable.
-    // Luckily the neighboring bias patch works and can be used for setting
-    // the threshold. In case there is a star in the broken patch, this patch
-    // will fire like crazy since the threshold is derived from the neighboring
-    // patch, which has a much lower current.
-    trigger_patch_thresholds[19] = dual_trigger_patch_thresholds[39];  // 38 is dead
-    trigger_patch_thresholds[33] = dual_trigger_patch_thresholds[67];  // 66 is crazy
-    trigger_patch_thresholds[95] = dual_trigger_patch_thresholds[190];  // 191 is crazy
-    trigger_patch_thresholds[96] = dual_trigger_patch_thresholds[192];  // 193 is crazy
-    trigger_patch_thresholds[144] = dual_trigger_patch_thresholds[273];  // 272 is sometimes dead
-
     return move(trigger_patch_thresholds);
 }
