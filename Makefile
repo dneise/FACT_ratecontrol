@@ -1,3 +1,5 @@
+all: test_stl test_c2t
+
 test_stl: test_numeric_stl.cpp numeric_stl.hpp
 	g++ test_numeric_stl.cpp -o test_numeric_stl -std=c++11
 	./test_numeric_stl
